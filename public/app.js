@@ -1,0 +1,867 @@
+// Firebase configuration - Replace with your Firebase project config
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { 
+    getFirestore, 
+    collection, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    getDocs, 
+    deleteDoc,
+    query, 
+    where, 
+    orderBy 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDXX6imI8m0RptM9YPbZGxKdE1543dQSQI",
+    authDomain: "headache-tracker-md-2026.firebaseapp.com",
+    projectId: "headache-tracker-md-2026",
+    storageBucket: "headache-tracker-md-2026.firebasestorage.app",
+    messagingSenderId: "434266145380",
+    appId: "1:434266145380:web:cdfcc78be1996e0c2d5571"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// App State
+let currentUser = null;
+let useLocalStorage = false;
+let entries = {};
+let charts = {};
+
+// DOM Elements
+const authSection = document.getElementById('authSection');
+const mainApp = document.getElementById('mainApp');
+const authStatus = document.getElementById('authStatus');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authError = document.getElementById('authError');
+const signInBtn = document.getElementById('signInBtn');
+const signUpBtn = document.getElementById('signUpBtn');
+const skipAuthBtn = document.getElementById('skipAuthBtn');
+const headacheForm = document.getElementById('headacheForm');
+const logDate = document.getElementById('logDate');
+const entryStatus = document.getElementById('entryStatus');
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDatePicker();
+    setupEventListeners();
+    setupAuthStateListener();
+});
+
+// Auth State Listener
+function setupAuthStateListener() {
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            useLocalStorage = false;
+            await loadEntriesFromFirestore();
+            showMainApp();
+            updateAuthStatus();
+        } else if (useLocalStorage) {
+            loadEntriesFromLocalStorage();
+            showMainApp();
+            updateAuthStatus();
+        }
+    });
+}
+
+// Event Listeners
+function setupEventListeners() {
+    // Auth
+    signInBtn.addEventListener('click', handleSignIn);
+    signUpBtn.addEventListener('click', handleSignUp);
+    skipAuthBtn.addEventListener('click', handleSkipAuth);
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // Date Navigation
+    document.getElementById('prevDay').addEventListener('click', () => navigateDate(-1));
+    document.getElementById('nextDay').addEventListener('click', () => navigateDate(1));
+    document.getElementById('todayBtn').addEventListener('click', goToToday);
+    logDate.addEventListener('change', () => loadEntryForDate(logDate.value));
+
+    // Form
+    headacheForm.addEventListener('submit', handleFormSubmit);
+    document.getElementById('clearBtn').addEventListener('click', clearForm);
+
+    // Range inputs - update display values
+    document.querySelectorAll('input[type="range"]').forEach(input => {
+        input.addEventListener('input', (e) => {
+            e.target.nextElementSibling.textContent = e.target.value;
+        });
+    });
+
+    // History
+    document.getElementById('historyMonth').addEventListener('change', loadHistory);
+    document.getElementById('showAllHistory').addEventListener('click', () => loadHistory(true));
+
+    // Charts
+    document.getElementById('chartRange').addEventListener('change', renderCharts);
+    document.getElementById('refreshCharts').addEventListener('click', renderCharts);
+
+    // Export
+    document.getElementById('exportCSV').addEventListener('click', exportCSV);
+    document.getElementById('exportReport').addEventListener('click', exportReport);
+    document.getElementById('exportJSON').addEventListener('click', exportJSON);
+    document.getElementById('importBtn').addEventListener('click', importJSON);
+}
+
+// Auth Handlers
+async function handleSignIn() {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    
+    if (!email || !password) {
+        showAuthError('Please enter email and password');
+        return;
+    }
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        showAuthError(getAuthErrorMessage(error.code));
+    }
+}
+
+async function handleSignUp() {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    
+    if (!email || !password) {
+        showAuthError('Please enter email and password');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthError('Password must be at least 6 characters');
+        return;
+    }
+
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        showAuthError(getAuthErrorMessage(error.code));
+    }
+}
+
+function handleSkipAuth() {
+    useLocalStorage = true;
+    currentUser = null;
+    loadEntriesFromLocalStorage();
+    showMainApp();
+    updateAuthStatus();
+}
+
+async function handleSignOut() {
+    if (currentUser) {
+        await signOut(auth);
+    }
+    currentUser = null;
+    useLocalStorage = false;
+    entries = {};
+    authSection.style.display = 'flex';
+    mainApp.style.display = 'none';
+    authStatus.innerHTML = '';
+}
+
+function showAuthError(message) {
+    authError.textContent = message;
+    setTimeout(() => authError.textContent = '', 5000);
+}
+
+function getAuthErrorMessage(code) {
+    const messages = {
+        'auth/invalid-email': 'Invalid email address',
+        'auth/user-disabled': 'This account has been disabled',
+        'auth/user-not-found': 'No account found with this email',
+        'auth/wrong-password': 'Incorrect password',
+        'auth/email-already-in-use': 'An account already exists with this email',
+        'auth/weak-password': 'Password is too weak',
+        'auth/invalid-credential': 'Invalid email or password'
+    };
+    return messages[code] || 'An error occurred. Please try again.';
+}
+
+function showMainApp() {
+    authSection.style.display = 'none';
+    mainApp.style.display = 'block';
+    loadEntryForDate(logDate.value);
+}
+
+function updateAuthStatus() {
+    if (currentUser) {
+        authStatus.innerHTML = `
+            Signed in as <strong>${currentUser.email}</strong>
+            <button id="signOutBtn">Sign Out</button>
+        `;
+        document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+    } else if (useLocalStorage) {
+        authStatus.innerHTML = `
+            Using local storage only
+            <button id="signOutBtn">Switch Account</button>
+        `;
+        document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+    }
+}
+
+// Date Functions
+function initializeDatePicker() {
+    const today = new Date().toISOString().split('T')[0];
+    logDate.value = today;
+    document.getElementById('historyMonth').value = today.substring(0, 7);
+    
+    // Set export date range defaults
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    document.getElementById('exportFrom').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('exportTo').value = today;
+}
+
+function navigateDate(days) {
+    const current = new Date(logDate.value);
+    current.setDate(current.getDate() + days);
+    logDate.value = current.toISOString().split('T')[0];
+    loadEntryForDate(logDate.value);
+}
+
+function goToToday() {
+    logDate.value = new Date().toISOString().split('T')[0];
+    loadEntryForDate(logDate.value);
+}
+
+// Tab Navigation
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === tabId);
+    });
+
+    if (tabId === 'history') loadHistory();
+    if (tabId === 'charts') renderCharts();
+}
+
+// Data Storage - Firestore
+async function loadEntriesFromFirestore() {
+    try {
+        const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
+        const snapshot = await getDocs(entriesRef);
+        entries = {};
+        snapshot.forEach(doc => {
+            entries[doc.id] = doc.data();
+        });
+    } catch (error) {
+        console.error('Error loading entries:', error);
+        showToast('Error loading data', 'error');
+    }
+}
+
+async function saveEntryToFirestore(date, data) {
+    try {
+        const entryRef = doc(db, 'users', currentUser.uid, 'entries', date);
+        await setDoc(entryRef, { ...data, updatedAt: new Date().toISOString() });
+        entries[date] = data;
+    } catch (error) {
+        console.error('Error saving entry:', error);
+        showToast('Error saving data', 'error');
+        throw error;
+    }
+}
+
+async function deleteEntryFromFirestore(date) {
+    try {
+        const entryRef = doc(db, 'users', currentUser.uid, 'entries', date);
+        await deleteDoc(entryRef);
+        delete entries[date];
+    } catch (error) {
+        console.error('Error deleting entry:', error);
+        showToast('Error deleting data', 'error');
+        throw error;
+    }
+}
+
+// Data Storage - Local Storage
+function loadEntriesFromLocalStorage() {
+    const stored = localStorage.getItem('headacheTracker_entries');
+    entries = stored ? JSON.parse(stored) : {};
+}
+
+function saveEntryToLocalStorage(date, data) {
+    entries[date] = data;
+    localStorage.setItem('headacheTracker_entries', JSON.stringify(entries));
+}
+
+function deleteEntryFromLocalStorage(date) {
+    delete entries[date];
+    localStorage.setItem('headacheTracker_entries', JSON.stringify(entries));
+}
+
+// Save/Load Entry
+async function saveEntry(date, data) {
+    if (currentUser) {
+        await saveEntryToFirestore(date, data);
+    } else {
+        saveEntryToLocalStorage(date, data);
+    }
+}
+
+async function deleteEntry(date) {
+    if (currentUser) {
+        await deleteEntryFromFirestore(date);
+    } else {
+        deleteEntryFromLocalStorage(date);
+    }
+}
+
+function loadEntryForDate(date) {
+    const entry = entries[date];
+    
+    if (entry) {
+        entryStatus.textContent = '✓ Entry exists for this date';
+        entryStatus.className = 'entry-status exists';
+        populateForm(entry);
+    } else {
+        entryStatus.textContent = 'No entry for this date - create one below';
+        entryStatus.className = 'entry-status new';
+        clearForm();
+    }
+}
+
+function populateForm(entry) {
+    const form = headacheForm;
+    
+    // Pain levels
+    form.painLevel.value = entry.painLevel || 0;
+    form.peakPain.value = entry.peakPain || 0;
+    
+    // Symptoms
+    form.tinnitus.value = entry.tinnitus || 0;
+    form.ocular.value = entry.ocular || 0;
+    form.nausea.value = entry.nausea || 0;
+    form.lightSensitivity.value = entry.lightSensitivity || 0;
+    
+    // Medications
+    form.paracetamol.value = entry.paracetamol || 0;
+    form.ibuprofen.value = entry.ibuprofen || 0;
+    form.aspirin.value = entry.aspirin || 0;
+    form.triptan.value = entry.triptan || 0;
+    form.codeine.value = entry.codeine || 0;
+    form.otherMeds.value = entry.otherMeds || '';
+    
+    // Additional
+    form.duration.value = entry.duration || 0;
+    form.triggers.value = entry.triggers || '';
+    form.notes.value = entry.notes || '';
+    
+    // Update range display values
+    form.querySelectorAll('input[type="range"]').forEach(input => {
+        input.nextElementSibling.textContent = input.value;
+    });
+}
+
+function clearForm() {
+    headacheForm.reset();
+    headacheForm.querySelectorAll('input[type="range"]').forEach(input => {
+        input.nextElementSibling.textContent = '0';
+    });
+}
+
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const date = logDate.value;
+    
+    const data = {
+        date,
+        painLevel: parseInt(form.painLevel.value),
+        peakPain: parseInt(form.peakPain.value),
+        tinnitus: parseInt(form.tinnitus.value),
+        ocular: parseInt(form.ocular.value),
+        nausea: parseInt(form.nausea.value),
+        lightSensitivity: parseInt(form.lightSensitivity.value),
+        paracetamol: parseInt(form.paracetamol.value),
+        ibuprofen: parseInt(form.ibuprofen.value),
+        aspirin: parseInt(form.aspirin.value),
+        triptan: parseInt(form.triptan.value),
+        codeine: parseInt(form.codeine.value),
+        otherMeds: form.otherMeds.value.trim(),
+        duration: parseFloat(form.duration.value),
+        triggers: form.triggers.value.trim(),
+        notes: form.notes.value.trim()
+    };
+
+    try {
+        await saveEntry(date, data);
+        showToast('Entry saved successfully!', 'success');
+        entryStatus.textContent = '✓ Entry exists for this date';
+        entryStatus.className = 'entry-status exists';
+    } catch (error) {
+        showToast('Failed to save entry', 'error');
+    }
+}
+
+// History
+function loadHistory(showAll = false) {
+    const historyList = document.getElementById('historyList');
+    const monthFilter = document.getElementById('historyMonth').value;
+    
+    let filteredEntries = Object.entries(entries);
+    
+    if (!showAll && monthFilter) {
+        filteredEntries = filteredEntries.filter(([date]) => date.startsWith(monthFilter));
+    }
+    
+    filteredEntries.sort((a, b) => new Date(b[0]) - new Date(a[0]));
+    
+    if (filteredEntries.length === 0) {
+        historyList.innerHTML = '<div class="no-entries">No entries found for this period</div>';
+        return;
+    }
+    
+    historyList.innerHTML = filteredEntries.map(([date, entry]) => `
+        <div class="history-item" data-date="${date}">
+            <div class="history-date">${formatDate(date)}</div>
+            <div class="history-summary">
+                <span>Pain: ${entry.painLevel}/4</span>
+                <span>Peak: ${entry.peakPain}/4</span>
+                <span>Duration: ${entry.duration}h</span>
+                ${getTotalMeds(entry) > 0 ? `<span>Meds: ${getTotalMeds(entry)} doses</span>` : ''}
+            </div>
+            <div class="history-actions">
+                <button class="edit-btn" onclick="editEntry('${date}')">Edit</button>
+                <button class="delete-btn" onclick="confirmDelete('${date}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function getTotalMeds(entry) {
+    return (entry.paracetamol || 0) + (entry.ibuprofen || 0) + 
+           (entry.aspirin || 0) + (entry.triptan || 0) + (entry.codeine || 0);
+}
+
+window.editEntry = function(date) {
+    logDate.value = date;
+    loadEntryForDate(date);
+    switchTab('log');
+};
+
+window.confirmDelete = async function(date) {
+    if (confirm(`Delete entry for ${formatDate(date)}?`)) {
+        try {
+            await deleteEntry(date);
+            showToast('Entry deleted', 'success');
+            loadHistory();
+        } catch (error) {
+            showToast('Failed to delete entry', 'error');
+        }
+    }
+};
+
+// Charts
+function renderCharts() {
+    const range = document.getElementById('chartRange').value;
+    const data = getChartData(range);
+    
+    renderPainChart(data);
+    renderSymptomsChart(data);
+    renderMedsChart(data);
+    renderStats(data);
+}
+
+function getChartData(range) {
+    let filteredEntries = Object.entries(entries);
+    
+    if (range !== 'all') {
+        const days = parseInt(range);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        filteredEntries = filteredEntries.filter(([date]) => new Date(date) >= cutoff);
+    }
+    
+    filteredEntries.sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    
+    return {
+        dates: filteredEntries.map(([date]) => formatDate(date)),
+        entries: filteredEntries.map(([, entry]) => entry)
+    };
+}
+
+function renderPainChart(data) {
+    const ctx = document.getElementById('painChart').getContext('2d');
+    
+    if (charts.pain) charts.pain.destroy();
+    
+    charts.pain = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [
+                {
+                    label: 'Overall Pain',
+                    data: data.entries.map(e => e.painLevel),
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Peak Pain',
+                    data: data.entries.map(e => e.peakPain),
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { min: 0, max: 4 }
+            }
+        }
+    });
+}
+
+function renderSymptomsChart(data) {
+    const ctx = document.getElementById('symptomsChart').getContext('2d');
+    
+    if (charts.symptoms) charts.symptoms.destroy();
+    
+    charts.symptoms = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [
+                {
+                    label: 'Tinnitus',
+                    data: data.entries.map(e => e.tinnitus),
+                    borderColor: '#f39c12',
+                    tension: 0.3
+                },
+                {
+                    label: 'Ocular',
+                    data: data.entries.map(e => e.ocular),
+                    borderColor: '#9b59b6',
+                    tension: 0.3
+                },
+                {
+                    label: 'Nausea',
+                    data: data.entries.map(e => e.nausea),
+                    borderColor: '#27ae60',
+                    tension: 0.3
+                },
+                {
+                    label: 'Light Sensitivity',
+                    data: data.entries.map(e => e.lightSensitivity),
+                    borderColor: '#3498db',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { min: 0, max: 4 }
+            }
+        }
+    });
+}
+
+function renderMedsChart(data) {
+    const ctx = document.getElementById('medsChart').getContext('2d');
+    
+    if (charts.meds) charts.meds.destroy();
+    
+    const totals = {
+        paracetamol: data.entries.reduce((sum, e) => sum + (e.paracetamol || 0), 0),
+        ibuprofen: data.entries.reduce((sum, e) => sum + (e.ibuprofen || 0), 0),
+        aspirin: data.entries.reduce((sum, e) => sum + (e.aspirin || 0), 0),
+        triptan: data.entries.reduce((sum, e) => sum + (e.triptan || 0), 0),
+        codeine: data.entries.reduce((sum, e) => sum + (e.codeine || 0), 0)
+    };
+    
+    charts.meds = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Triptan', 'Codeine'],
+            datasets: [{
+                data: Object.values(totals),
+                backgroundColor: ['#667eea', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6']
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+}
+
+function renderStats(data) {
+    const statsPanel = document.getElementById('statsPanel');
+    
+    if (data.entries.length === 0) {
+        statsPanel.innerHTML = '<div class="no-entries">No data for this period</div>';
+        return;
+    }
+    
+    const avgPain = (data.entries.reduce((sum, e) => sum + e.painLevel, 0) / data.entries.length).toFixed(1);
+    const maxPain = Math.max(...data.entries.map(e => e.peakPain));
+    const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
+    const avgDuration = (data.entries.reduce((sum, e) => sum + (e.duration || 0), 0) / data.entries.length).toFixed(1);
+    const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
+    
+    statsPanel.innerHTML = `
+        <div class="stat-item">
+            <span class="stat-label">Total Entries</span>
+            <span class="stat-value">${data.entries.length}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Days with Headache</span>
+            <span class="stat-value">${daysWithPain} (${((daysWithPain/data.entries.length)*100).toFixed(0)}%)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Pain Level</span>
+            <span class="stat-value">${avgPain}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Highest Pain Level</span>
+            <span class="stat-value">${maxPain}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Duration</span>
+            <span class="stat-value">${avgDuration} hours</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Total Medication Doses</span>
+            <span class="stat-value">${totalMeds}</span>
+        </div>
+    `;
+}
+
+// Export Functions
+function exportCSV() {
+    const fromDate = document.getElementById('exportFrom').value;
+    const toDate = document.getElementById('exportTo').value;
+    
+    let filteredEntries = Object.entries(entries)
+        .filter(([date]) => date >= fromDate && date <= toDate)
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    
+    if (filteredEntries.length === 0) {
+        showToast('No entries in selected date range', 'error');
+        return;
+    }
+    
+    const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Nausea', 
+                     'Light Sensitivity', 'Paracetamol', 'Ibuprofen', 'Aspirin', 'Triptan', 
+                     'Codeine', 'Other Meds', 'Duration', 'Triggers', 'Notes'];
+    
+    const rows = filteredEntries.map(([date, e]) => [
+        date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.nausea,
+        e.lightSensitivity, e.paracetamol, e.ibuprofen, e.aspirin, e.triptan,
+        e.codeine, `"${e.otherMeds || ''}"`, e.duration, `"${e.triggers || ''}"`, `"${e.notes || ''}"`
+    ]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadFile(csv, `headache-log-${fromDate}-to-${toDate}.csv`, 'text/csv');
+    showToast('CSV exported successfully', 'success');
+}
+
+function exportReport() {
+    const fromDate = document.getElementById('exportFrom').value;
+    const toDate = document.getElementById('exportTo').value;
+    
+    let filteredEntries = Object.entries(entries)
+        .filter(([date]) => date >= fromDate && date <= toDate)
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    
+    if (filteredEntries.length === 0) {
+        showToast('No entries in selected date range', 'error');
+        return;
+    }
+    
+    const data = { dates: filteredEntries.map(([d]) => d), entries: filteredEntries.map(([,e]) => e) };
+    
+    const avgPain = (data.entries.reduce((sum, e) => sum + e.painLevel, 0) / data.entries.length).toFixed(1);
+    const maxPain = Math.max(...data.entries.map(e => e.peakPain));
+    const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
+    const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Headache Report ${fromDate} to ${toDate}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #667eea; }
+        .summary { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 2rem; color: #667eea; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #667eea; color: white; }
+        tr:nth-child(even) { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Headache Report</h1>
+    <p><strong>Period:</strong> ${fromDate} to ${toDate}</p>
+    <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+    
+    <div class="summary">
+        <h2>Summary Statistics</h2>
+        <div class="summary-grid">
+            <div class="stat">
+                <div class="stat-value">${data.entries.length}</div>
+                <div>Total Days Logged</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">${daysWithPain}</div>
+                <div>Days with Headache</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">${avgPain}</div>
+                <div>Avg Pain Level (0-4)</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">${maxPain}</div>
+                <div>Max Pain Level</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">${totalMeds}</div>
+                <div>Total Medication Doses</div>
+            </div>
+        </div>
+    </div>
+    
+    <h2>Daily Log</h2>
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Pain</th>
+            <th>Peak</th>
+            <th>Duration</th>
+            <th>Medications</th>
+            <th>Triggers</th>
+        </tr>
+        ${filteredEntries.map(([date, e]) => `
+        <tr>
+            <td>${date}</td>
+            <td>${e.painLevel}/4</td>
+            <td>${e.peakPain}/4</td>
+            <td>${e.duration}h</td>
+            <td>${getMedsSummary(e)}</td>
+            <td>${e.triggers || '-'}</td>
+        </tr>
+        `).join('')}
+    </table>
+</body>
+</html>`;
+    
+    downloadFile(html, `headache-report-${fromDate}-to-${toDate}.html`, 'text/html');
+    showToast('Report generated successfully', 'success');
+}
+
+function getMedsSummary(entry) {
+    const meds = [];
+    if (entry.paracetamol) meds.push(`Paracetamol: ${entry.paracetamol}`);
+    if (entry.ibuprofen) meds.push(`Ibuprofen: ${entry.ibuprofen}`);
+    if (entry.aspirin) meds.push(`Aspirin: ${entry.aspirin}`);
+    if (entry.triptan) meds.push(`Triptan: ${entry.triptan}`);
+    if (entry.codeine) meds.push(`Codeine: ${entry.codeine}`);
+    if (entry.otherMeds) meds.push(entry.otherMeds);
+    return meds.length > 0 ? meds.join(', ') : '-';
+}
+
+function exportJSON() {
+    const data = {
+        exportDate: new Date().toISOString(),
+        entries: entries
+    };
+    downloadFile(JSON.stringify(data, null, 2), `headache-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+    showToast('Backup exported successfully', 'success');
+}
+
+async function importJSON() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showToast('Please select a file to import', 'error');
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (!data.entries) {
+            showToast('Invalid backup file format', 'error');
+            return;
+        }
+        
+        const count = Object.keys(data.entries).length;
+        if (!confirm(`Import ${count} entries? This will merge with existing data.`)) {
+            return;
+        }
+        
+        for (const [date, entry] of Object.entries(data.entries)) {
+            await saveEntry(date, entry);
+        }
+        
+        showToast(`Imported ${count} entries successfully`, 'success');
+        loadHistory();
+    } catch (error) {
+        showToast('Failed to import file', 'error');
+    }
+}
+
+function downloadFile(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Toast Notifications
+function showToast(message, type = '') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.remove(), 3000);
+}
