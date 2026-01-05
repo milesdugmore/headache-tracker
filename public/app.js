@@ -42,6 +42,7 @@ let currentUser = null;
 let useLocalStorage = false;
 let entries = {};
 let charts = {};
+let isLoadingForm = false; // Flag to prevent auto-save during form population
 
 // DOM Elements
 const authSection = document.getElementById('authSection');
@@ -292,13 +293,16 @@ async function loadEntriesFromFirestore() {
 }
 
 async function saveEntryToFirestore(date, data) {
+    // Update local cache first for immediate feedback
+    entries[date] = data;
+    
     try {
         const entryRef = doc(db, 'users', currentUser.uid, 'entries', date);
         await setDoc(entryRef, { ...data, updatedAt: new Date().toISOString() });
-        entries[date] = data;
     } catch (error) {
-        console.error('Error saving entry:', error);
-        showToast('Error saving data', 'error');
+        console.error('Error saving entry to Firestore:', error);
+        // Revert local cache on error
+        delete entries[date];
         throw error;
     }
 }
@@ -349,7 +353,20 @@ async function deleteEntry(date) {
 }
 
 function loadEntryForDate(date) {
+    // Clear any pending auto-save for previous date
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+    }
+    
+    // Clear auto-save status
+    const statusEl = document.getElementById('autoSaveStatus');
+    if (statusEl) statusEl.textContent = '';
+    
     const entry = entries[date];
+    
+    // Set flag to prevent auto-save during form population
+    isLoadingForm = true;
     
     if (entry) {
         entryStatus.textContent = '✓ Entry exists for this date';
@@ -360,6 +377,11 @@ function loadEntryForDate(date) {
         entryStatus.className = 'entry-status new';
         clearForm();
     }
+    
+    // Re-enable auto-save after a short delay
+    setTimeout(() => {
+        isLoadingForm = false;
+    }, 100);
 }
 
 function populateForm(entry) {
@@ -403,6 +425,9 @@ function clearForm() {
 // Auto-save with debouncing
 let saveTimeout = null;
 function autoSave() {
+    // Don't auto-save during form population
+    if (isLoadingForm) return;
+    
     // Debounce saves to avoid too many requests
     if (saveTimeout) clearTimeout(saveTimeout);
     
@@ -416,18 +441,18 @@ function autoSave() {
         
         const data = {
             date,
-            painLevel: parseInt(form.painLevel.value),
-            peakPain: parseInt(form.peakPain.value),
-            tinnitus: parseInt(form.tinnitus.value),
-            ocular: parseInt(form.ocular.value),
-            nausea: parseInt(form.nausea.value),
-            paracetamol: parseInt(form.paracetamol.value),
-            ibuprofen: parseInt(form.ibuprofen.value),
-            aspirin: parseInt(form.aspirin.value),
-            triptan: parseInt(form.triptan.value),
-            codeine: parseInt(form.codeine.value),
+            painLevel: parseInt(form.painLevel.value) || 0,
+            peakPain: parseInt(form.peakPain.value) || 0,
+            tinnitus: parseInt(form.tinnitus.value) || 0,
+            ocular: parseInt(form.ocular.value) || 0,
+            nausea: parseInt(form.nausea.value) || 0,
+            paracetamol: parseInt(form.paracetamol.value) || 0,
+            ibuprofen: parseInt(form.ibuprofen.value) || 0,
+            aspirin: parseInt(form.aspirin.value) || 0,
+            triptan: parseInt(form.triptan.value) || 0,
+            codeine: parseInt(form.codeine.value) || 0,
             otherMeds: form.otherMeds.value.trim(),
-            duration: parseFloat(form.duration.value),
+            duration: parseFloat(form.duration.value) || 0,
             triggers: form.triggers.value.trim(),
             notes: form.notes.value.trim()
         };
@@ -444,6 +469,7 @@ function autoSave() {
                 statusEl.textContent = '';
             }, 2000);
         } catch (error) {
+            console.error('Auto-save error:', error);
             statusEl.textContent = '✗ Save failed';
             statusEl.className = 'auto-save-status error';
         }
