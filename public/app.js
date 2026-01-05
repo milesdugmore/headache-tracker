@@ -609,7 +609,7 @@ function renderMedsChart(data) {
     charts.meds = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Triptan', 'Codeine'],
+            labels: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 'Ice'],
             datasets: [{
                 data: Object.values(totals),
                 backgroundColor: ['#667eea', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6']
@@ -678,8 +678,8 @@ function exportCSV() {
     }
     
     const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Nausea', 
-                     'Light Sensitivity', 'Paracetamol', 'Ibuprofen', 'Aspirin', 'Triptan', 
-                     'Codeine', 'Other Meds', 'Duration', 'Triggers', 'Notes'];
+                     'Light Sensitivity', 'Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 
+                     'Ice', 'Other Meds', 'Duration', 'Triggers', 'Notes'];
     
     const rows = filteredEntries.map(([date, e]) => [
         date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.nausea,
@@ -794,8 +794,8 @@ function getMedsSummary(entry) {
     if (entry.paracetamol) meds.push(`Paracetamol: ${entry.paracetamol}`);
     if (entry.ibuprofen) meds.push(`Ibuprofen: ${entry.ibuprofen}`);
     if (entry.aspirin) meds.push(`Aspirin: ${entry.aspirin}`);
-    if (entry.triptan) meds.push(`Triptan: ${entry.triptan}`);
-    if (entry.codeine) meds.push(`Codeine: ${entry.codeine}`);
+    if (entry.triptan) meds.push(`Sumatriptan: ${entry.triptan}`);
+    if (entry.codeine) meds.push(`Ice: ${entry.codeine}`);
     if (entry.otherMeds) meds.push(entry.otherMeds);
     return meds.length > 0 ? meds.join(', ') : '-';
 }
