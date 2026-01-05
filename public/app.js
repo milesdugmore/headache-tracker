@@ -4,6 +4,8 @@ import {
     getAuth, 
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword,
+    signInWithPopup,
+    GoogleAuthProvider,
     signOut,
     onAuthStateChanged 
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
@@ -84,6 +86,7 @@ function setupEventListeners() {
     // Auth
     signInBtn.addEventListener('click', handleSignIn);
     signUpBtn.addEventListener('click', handleSignUp);
+    document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
     skipAuthBtn.addEventListener('click', handleSkipAuth);
 
     // Tabs
@@ -161,6 +164,15 @@ async function handleSignUp() {
 
     try {
         await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        showAuthError(getAuthErrorMessage(error.code));
+    }
+}
+
+async function handleGoogleSignIn() {
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
     } catch (error) {
         showAuthError(getAuthErrorMessage(error.code));
     }
@@ -361,7 +373,6 @@ function populateForm(entry) {
     form.tinnitus.value = entry.tinnitus || 0;
     form.ocular.value = entry.ocular || 0;
     form.nausea.value = entry.nausea || 0;
-    form.lightSensitivity.value = entry.lightSensitivity || 0;
     
     // Medications
     form.paracetamol.value = entry.paracetamol || 0;
@@ -410,7 +421,6 @@ function autoSave() {
             tinnitus: parseInt(form.tinnitus.value),
             ocular: parseInt(form.ocular.value),
             nausea: parseInt(form.nausea.value),
-            lightSensitivity: parseInt(form.lightSensitivity.value),
             paracetamol: parseInt(form.paracetamol.value),
             ibuprofen: parseInt(form.ibuprofen.value),
             aspirin: parseInt(form.aspirin.value),
@@ -596,12 +606,6 @@ function renderSymptomsChart(data) {
                     data: data.entries.map(e => e.nausea),
                     borderColor: '#27ae60',
                     tension: 0.3
-                },
-                {
-                    label: 'Light Sensitivity',
-                    data: data.entries.map(e => e.lightSensitivity),
-                    borderColor: '#3498db',
-                    tension: 0.3
                 }
             ]
         },
@@ -699,12 +703,12 @@ function exportCSV() {
     }
     
     const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Nausea', 
-                     'Light Sensitivity', 'Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 
+                     'Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 
                      'Ice', 'Other Meds', 'Duration', 'Triggers', 'Notes'];
     
     const rows = filteredEntries.map(([date, e]) => [
         date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.nausea,
-        e.lightSensitivity, e.paracetamol, e.ibuprofen, e.aspirin, e.triptan,
+        e.paracetamol, e.ibuprofen, e.aspirin, e.triptan,
         e.codeine, `"${e.otherMeds || ''}"`, e.duration, `"${e.triggers || ''}"`, `"${e.notes || ''}"`
     ]);
     
