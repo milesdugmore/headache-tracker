@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Headache Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Headache Tracker</h1>
+            <p class="subtitle">Daily symptom and medication log</p>
+            <div id="authStatus" class="auth-status"></div>
+        </header>
+
+        <!-- Auth Section -->
+        <div id="authSection" class="auth-section">
+            <div class="auth-box">
+                <h2>Sign In</h2>
+                <p>Sign in to sync your data across devices</p>
+                <input type="email" id="authEmail" placeholder="Email">
+                <input type="password" id="authPassword" placeholder="Password">
+                <div class="auth-buttons">
+                    <button id="signInBtn" class="auth-btn">Sign In</button>
+                    <button id="signUpBtn" class="auth-btn secondary">Create Account</button>
+                </div>
+                <button id="skipAuthBtn" class="skip-btn">Continue without account (local storage only)</button>
+                <div id="authError" class="auth-error"></div>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div id="mainApp" class="main-app" style="display: none;">
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="log">Daily Log</button>
+                <button class="tab-btn" data-tab="history">History</button>
+                <button class="tab-btn" data-tab="charts">Analysis</button>
+                <button class="tab-btn" data-tab="export">Export</button>
+            </nav>
+
+            <!-- Daily Log Tab -->
+            <section id="log" class="tab-content active">
+                <div class="date-picker">
+                    <button id="prevDay" class="date-nav">◀</button>
+                    <input type="date" id="logDate">
+                    <button id="nextDay" class="date-nav">▶</button>
+                    <button id="todayBtn" class="today-btn">Today</button>
+                </div>
+                <div id="entryStatus" class="entry-status"></div>
+
+                <form id="headacheForm">
+                    <fieldset>
+                        <legend>Pain Levels (0-4)</legend>
+                        <div class="scale-group">
+                            <label>
+                                <span>Overall Headache Pain</span>
+                                <div class="scale-input">
+                                    <input type="range" name="painLevel" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                            <label>
+                                <span>Peak Pain Level</span>
+                                <div class="scale-input">
+                                    <input type="range" name="peakPain" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Symptoms (0-4)</legend>
+                        <div class="scale-group">
+                            <label>
+                                <span>Tinnitus</span>
+                                <div class="scale-input">
+                                    <input type="range" name="tinnitus" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                            <label>
+                                <span>Ocular Issues</span>
+                                <div class="scale-input">
+                                    <input type="range" name="ocular" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                            <label>
+                                <span>Nausea</span>
+                                <div class="scale-input">
+                                    <input type="range" name="nausea" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                            <label>
+                                <span>Light Sensitivity</span>
+                                <div class="scale-input">
+                                    <input type="range" name="lightSensitivity" min="0" max="4" value="0">
+                                    <span class="scale-value">0</span>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Medications Taken</legend>
+                        <div class="medication-grid">
+                            <label>
+                                <span>Paracetamol (tablets)</span>
+                                <input type="number" name="paracetamol" min="0" max="20" value="0">
+                            </label>
+                            <label>
+                                <span>Ibuprofen (tablets)</span>
+                                <input type="number" name="ibuprofen" min="0" max="20" value="0">
+                            </label>
+                            <label>
+                                <span>Aspirin (tablets)</span>
+                                <input type="number" name="aspirin" min="0" max="20" value="0">
+                            </label>
+                            <label>
+                                <span>Triptan (doses)</span>
+                                <input type="number" name="triptan" min="0" max="10" value="0">
+                            </label>
+                            <label>
+                                <span>Codeine (tablets)</span>
+                                <input type="number" name="codeine" min="0" max="20" value="0">
+                            </label>
+                            <label>
+                                <span>Other Pain Relief</span>
+                                <input type="text" name="otherMeds" placeholder="Specify...">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Additional Information</legend>
+                        <label>
+                            <span>Duration (hours)</span>
+                            <input type="number" name="duration" min="0" max="24" step="0.5" value="0">
+                        </label>
+                        <label>
+                            <span>Possible Triggers</span>
+                            <input type="text" name="triggers" placeholder="e.g., stress, sleep, food...">
+                        </label>
+                        <label>
+                            <span>Notes</span>
+                            <textarea name="notes" rows="4" placeholder="Any additional observations..."></textarea>
+                        </label>
+                    </fieldset>
+
+                    <div class="form-actions">
+                        <button type="submit" class="save-btn">💾 Save Entry</button>
+                        <button type="button" id="clearBtn" class="clear-btn">Clear</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- History Tab -->
+            <section id="history" class="tab-content">
+                <div class="history-controls">
+                    <input type="month" id="historyMonth">
+                    <button id="showAllHistory">Show All</button>
+                </div>
+                <div id="historyList" class="history-list"></div>
+            </section>
+
+            <!-- Charts Tab -->
+            <section id="charts" class="tab-content">
+                <div class="chart-controls">
+                    <label>
+                        Date Range:
+                        <select id="chartRange">
+                            <option value="7">Last 7 days</option>
+                            <option value="14">Last 14 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                            <option value="all">All time</option>
+                        </select>
+                    </label>
+                    <button id="refreshCharts">Refresh Charts</button>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Pain Levels Over Time</h3>
+                        <canvas id="painChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Symptoms Over Time</h3>
+                        <canvas id="symptomsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Medication Usage</h3>
+                        <canvas id="medsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Summary Statistics</h3>
+                        <div id="statsPanel" class="stats-panel"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export Tab -->
+            <section id="export" class="tab-content">
+                <div class="export-options">
+                    <h2>Export Your Data</h2>
+                    <p>Generate reports for your neurologist or personal records.</p>
+                    
+                    <div class="export-date-range">
+                        <label>
+                            From:
+                            <input type="date" id="exportFrom">
+                        </label>
+                        <label>
+                            To:
+                            <input type="date" id="exportTo">
+                        </label>
+                    </div>
+
+                    <div class="export-buttons">
+                        <button id="exportCSV" class="export-btn">
+                            📊 Export as CSV
+                        </button>
+                        <button id="exportReport" class="export-btn">
+                            📄 Generate Report (HTML)
+                        </button>
+                        <button id="exportJSON" class="export-btn">
+                            💾 Backup Data (JSON)
+                        </button>
+                    </div>
+
+                    <div class="import-section">
+                        <h3>Import Data</h3>
+                        <input type="file" id="importFile" accept=".json">
+                        <button id="importBtn" class="import-btn">Import Backup</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
