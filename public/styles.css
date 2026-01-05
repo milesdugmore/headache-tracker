@@ -352,17 +352,67 @@ legend {
     gap: 10px;
 }
 
-.medication-grid input[type="number"],
-.medication-grid input[type="text"] {
-    width: 80px;
-    padding: 8px;
+.stepper {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.stepper-btn {
+    width: 36px;
+    height: 36px;
     border: 2px solid #e0e0e0;
-    border-radius: 6px;
+    background: #f8f9fa;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #667eea;
+}
+
+.stepper-btn.minus {
+    border-radius: 6px 0 0 6px;
+    border-right: none;
+}
+
+.stepper-btn.plus {
+    border-radius: 0 6px 6px 0;
+    border-left: none;
+}
+
+.stepper-btn:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.stepper-btn:active {
+    transform: scale(0.95);
+}
+
+.stepper input[type="number"] {
+    width: 50px;
+    height: 36px;
+    padding: 0;
+    border: 2px solid #e0e0e0;
+    border-radius: 0;
     text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    -moz-appearance: textfield;
+}
+
+.stepper input[type="number"]::-webkit-outer-spin-button,
+.stepper input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .medication-grid input[type="text"] {
     width: 150px;
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
     text-align: left;
 }
 

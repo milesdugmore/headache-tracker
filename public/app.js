@@ -117,6 +117,25 @@ function setupEventListeners() {
         });
     });
 
+    // Stepper buttons for medication inputs
+    document.querySelectorAll('.stepper-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const stepper = e.target.closest('.stepper');
+            const input = stepper.querySelector('input[type="number"]');
+            const min = parseInt(input.min) || 0;
+            const max = parseInt(input.max) || 99;
+            let value = parseInt(input.value) || 0;
+            
+            if (btn.classList.contains('plus') && value < max) {
+                input.value = value + 1;
+            } else if (btn.classList.contains('minus') && value > min) {
+                input.value = value - 1;
+            }
+            
+            autoSave();
+        });
+    });
+
     // History
     document.getElementById('historyMonth').addEventListener('change', loadHistory);
     document.getElementById('showAllHistory').addEventListener('click', () => loadHistory(true));
