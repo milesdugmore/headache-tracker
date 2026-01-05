@@ -98,13 +98,18 @@ function setupEventListeners() {
     logDate.addEventListener('change', () => loadEntryForDate(logDate.value));
 
     // Form
-    headacheForm.addEventListener('submit', handleFormSubmit);
     document.getElementById('clearBtn').addEventListener('click', clearForm);
 
-    // Range inputs - update display values
+    // Auto-save on any form input change
+    headacheForm.querySelectorAll('input, textarea').forEach(input => {
+        input.addEventListener('change', autoSave);
+    });
+
+    // Range inputs - update display values and auto-save
     document.querySelectorAll('input[type="range"]').forEach(input => {
         input.addEventListener('input', (e) => {
             e.target.nextElementSibling.textContent = e.target.value;
+            autoSave();
         });
     });
 
@@ -384,39 +389,55 @@ function clearForm() {
     });
 }
 
-async function handleFormSubmit(e) {
-    e.preventDefault();
+// Auto-save with debouncing
+let saveTimeout = null;
+function autoSave() {
+    // Debounce saves to avoid too many requests
+    if (saveTimeout) clearTimeout(saveTimeout);
     
-    const form = e.target;
-    const date = logDate.value;
+    const statusEl = document.getElementById('autoSaveStatus');
+    statusEl.textContent = 'Saving...';
+    statusEl.className = 'auto-save-status saving';
     
-    const data = {
-        date,
-        painLevel: parseInt(form.painLevel.value),
-        peakPain: parseInt(form.peakPain.value),
-        tinnitus: parseInt(form.tinnitus.value),
-        ocular: parseInt(form.ocular.value),
-        nausea: parseInt(form.nausea.value),
-        lightSensitivity: parseInt(form.lightSensitivity.value),
-        paracetamol: parseInt(form.paracetamol.value),
-        ibuprofen: parseInt(form.ibuprofen.value),
-        aspirin: parseInt(form.aspirin.value),
-        triptan: parseInt(form.triptan.value),
-        codeine: parseInt(form.codeine.value),
-        otherMeds: form.otherMeds.value.trim(),
-        duration: parseFloat(form.duration.value),
-        triggers: form.triggers.value.trim(),
-        notes: form.notes.value.trim()
-    };
+    saveTimeout = setTimeout(async () => {
+        const form = headacheForm;
+        const date = logDate.value;
+        
+        const data = {
+            date,
+            painLevel: parseInt(form.painLevel.value),
+            peakPain: parseInt(form.peakPain.value),
+            tinnitus: parseInt(form.tinnitus.value),
+            ocular: parseInt(form.ocular.value),
+            nausea: parseInt(form.nausea.value),
+            lightSensitivity: parseInt(form.lightSensitivity.value),
+            paracetamol: parseInt(form.paracetamol.value),
+            ibuprofen: parseInt(form.ibuprofen.value),
+            aspirin: parseInt(form.aspirin.value),
+            triptan: parseInt(form.triptan.value),
+            codeine: parseInt(form.codeine.value),
+            otherMeds: form.otherMeds.value.trim(),
+            duration: parseFloat(form.duration.value),
+            triggers: form.triggers.value.trim(),
+            notes: form.notes.value.trim()
+        };
 
-    try {
-        await saveEntry(date, data);
-        showToast('Entry saved successfully!', 'success');
-        entryStatus.textContent = '✓ Entry exists for this date';
-        entryStatus.className = 'entry-status exists';
-    } catch (error) {
-        showToast('Failed to save entry', 'error');
-    }
+        try {
+            await saveEntry(date, data);
+            statusEl.textContent = '✓ Saved';
+            statusEl.className = 'auto-save-status saved';
+            entryStatus.textContent = '✓ Entry exists for this date';
+            entryStatus.className = 'entry-status exists';
+            
+            // Clear status after 2 seconds
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        } catch (error) {
+            statusEl.textContent = '✗ Save failed';
+            statusEl.className = 'auto-save-status error';
+        }
+    }, 500);
 }
 
 // History

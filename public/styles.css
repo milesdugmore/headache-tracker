@@ -358,23 +358,30 @@ fieldset > label textarea:focus {
     display: flex;
     gap: 15px;
     justify-content: center;
+    align-items: center;
     margin-top: 20px;
 }
 
-.save-btn {
-    padding: 15px 40px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.2s;
+.auto-save-status {
+    font-size: 0.9rem;
+    padding: 8px 15px;
+    border-radius: 8px;
+    transition: all 0.3s;
 }
 
-.save-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+.auto-save-status.saving {
+    color: #856404;
+    background: #fff3cd;
+}
+
+.auto-save-status.saved {
+    color: #155724;
+    background: #d4edda;
+}
+
+.auto-save-status.error {
+    color: #721c24;
+    background: #f8d7da;
 }
 
 .clear-btn {
