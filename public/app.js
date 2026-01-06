@@ -154,7 +154,10 @@ function setupEventListeners() {
 
     // Theme buttons
     document.querySelectorAll('.theme-btn').forEach(btn => {
-        btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+        btn.addEventListener('click', (e) => {
+            const theme = e.currentTarget.dataset.theme;
+            setTheme(theme);
+        });
     });
 }
 
