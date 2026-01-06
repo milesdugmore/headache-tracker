@@ -97,9 +97,9 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Nausea</span>
+                                <span>Sleep Issues</span>
                                 <div class="scale-input">
-                                    <input type="range" name="nausea" min="0" max="4" value="0">
+                                    <input type="range" name="sleepIssues" min="0" max="4" value="0">
                                     <span class="scale-value">0</span>
                                 </div>
                             </label>
@@ -110,7 +110,7 @@
                         <legend>Medications Taken</legend>
                         <div class="medication-grid">
                             <label>
-                                <span>Paracetamol (tablets)</span>
+                                <span>Paracetamol</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
                                     <input type="number" name="paracetamol" min="0" max="20" value="0">
@@ -118,7 +118,7 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Ibuprofen (tablets)</span>
+                                <span>Ibuprofen</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
                                     <input type="number" name="ibuprofen" min="0" max="20" value="0">
@@ -126,7 +126,7 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Aspirin (tablets)</span>
+                                <span>Aspirin</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
                                     <input type="number" name="aspirin" min="0" max="20" value="0">
@@ -134,7 +134,7 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Sumatriptan (doses)</span>
+                                <span>Sumatriptan</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
                                     <input type="number" name="triptan" min="0" max="10" value="0">
@@ -142,7 +142,7 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Ice (applications)</span>
+                                <span>Ice</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
                                     <input type="number" name="codeine" min="0" max="20" value="0">
@@ -150,7 +150,7 @@
                                 </div>
                             </label>
                             <label>
-                                <span>Other Pain Relief</span>
+                                <span>Other Medication</span>
                                 <input type="text" name="otherMeds" placeholder="Specify...">
                             </label>
                         </div>
@@ -200,17 +200,9 @@
                     <button id="refreshCharts">Refresh Charts</button>
                 </div>
                 <div class="charts-grid">
-                    <div class="chart-container">
-                        <h3>Pain Levels Over Time</h3>
-                        <canvas id="painChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h3>Symptoms Over Time</h3>
-                        <canvas id="symptomsChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h3>Medication Usage</h3>
-                        <canvas id="medsChart"></canvas>
+                    <div class="chart-container full-width">
+                        <h3>Tracking Over Time</h3>
+                        <canvas id="combinedChart"></canvas>
                     </div>
                     <div class="chart-container">
                         <h3>Summary Statistics</h3>

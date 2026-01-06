@@ -641,6 +641,10 @@ fieldset > label textarea:focus {
     border-radius: 12px;
 }
 
+.chart-container.full-width {
+    grid-column: 1 / -1;
+}
+
 .chart-container h3 {
     margin-bottom: 15px;
     color: #333;

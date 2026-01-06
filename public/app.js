@@ -101,7 +101,7 @@ function setupEventListeners() {
     document.getElementById('prevDay').addEventListener('click', () => navigateDate(-1));
     document.getElementById('nextDay').addEventListener('click', () => navigateDate(1));
     document.getElementById('todayBtn').addEventListener('click', goToToday);
-    logDate.addEventListener('change', () => loadEntryForDate(logDate.value));
+    logDate.addEventListener('change', async () => await loadEntryForDate(logDate.value));
 
     // Form
     document.getElementById('clearBtn').addEventListener('click', clearForm);
@@ -109,6 +109,15 @@ function setupEventListeners() {
     // Auto-save on any form input change
     headacheForm.querySelectorAll('input, textarea').forEach(input => {
         input.addEventListener('change', autoSave);
+    });
+
+    // Text inputs - auto-save after 5 seconds of no typing
+    headacheForm.querySelectorAll('input[type="text"], textarea').forEach(input => {
+        let textTimeout = null;
+        input.addEventListener('input', () => {
+            if (textTimeout) clearTimeout(textTimeout);
+            textTimeout = setTimeout(autoSave, 5000);
+        });
     });
 
     // Range inputs - update display values and auto-save
@@ -281,16 +290,16 @@ function initializeDatePicker() {
     document.getElementById('exportTo').value = today;
 }
 
-function navigateDate(days) {
+async function navigateDate(days) {
     const current = new Date(logDate.value);
     current.setDate(current.getDate() + days);
     logDate.value = current.toISOString().split('T')[0];
-    loadEntryForDate(logDate.value);
+    await loadEntryForDate(logDate.value);
 }
 
-function goToToday() {
+async function goToToday() {
     logDate.value = new Date().toISOString().split('T')[0];
-    loadEntryForDate(logDate.value);
+    await loadEntryForDate(logDate.value);
 }
 
 // Tab Navigation
@@ -381,11 +390,13 @@ async function deleteEntry(date) {
     }
 }
 
-function loadEntryForDate(date) {
-    // Clear any pending auto-save for previous date
+async function loadEntryForDate(date) {
+    // Save any pending changes for current date before switching
     if (saveTimeout) {
         clearTimeout(saveTimeout);
         saveTimeout = null;
+        // Force save current form before switching
+        await forceSaveCurrentForm();
     }
     
     // Clear auto-save status
@@ -423,7 +434,7 @@ function populateForm(entry) {
     // Symptoms
     form.tinnitus.value = entry.tinnitus || 0;
     form.ocular.value = entry.ocular || 0;
-    form.nausea.value = entry.nausea || 0;
+    form.sleepIssues.value = entry.sleepIssues || 0;
     
     // Medications
     form.paracetamol.value = entry.paracetamol || 0;
@@ -450,6 +461,35 @@ function clearForm() {
     });
 }
 
+// Force save current form (used when changing dates)
+async function forceSaveCurrentForm() {
+    const form = headacheForm;
+    const date = logDate.value;
+    
+    const data = {
+        date,
+        painLevel: parseInt(form.painLevel.value) || 0,
+        peakPain: parseInt(form.peakPain.value) || 0,
+        tinnitus: parseInt(form.tinnitus.value) || 0,
+        ocular: parseInt(form.ocular.value) || 0,
+        sleepIssues: parseInt(form.sleepIssues.value) || 0,
+        paracetamol: parseInt(form.paracetamol.value) || 0,
+        ibuprofen: parseInt(form.ibuprofen.value) || 0,
+        aspirin: parseInt(form.aspirin.value) || 0,
+        triptan: parseInt(form.triptan.value) || 0,
+        codeine: parseInt(form.codeine.value) || 0,
+        otherMeds: form.otherMeds.value.trim(),
+        triggers: form.triggers.value.trim(),
+        notes: form.notes.value.trim()
+    };
+
+    try {
+        await saveEntry(date, data);
+    } catch (error) {
+        console.error('Force save error:', error);
+    }
+}
+
 // Auto-save with debouncing
 let saveTimeout = null;
 function autoSave() {
@@ -473,7 +513,7 @@ function autoSave() {
             peakPain: parseInt(form.peakPain.value) || 0,
             tinnitus: parseInt(form.tinnitus.value) || 0,
             ocular: parseInt(form.ocular.value) || 0,
-            nausea: parseInt(form.nausea.value) || 0,
+            sleepIssues: parseInt(form.sleepIssues.value) || 0,
             paracetamol: parseInt(form.paracetamol.value) || 0,
             ibuprofen: parseInt(form.ibuprofen.value) || 0,
             aspirin: parseInt(form.aspirin.value) || 0,
@@ -570,9 +610,7 @@ function renderCharts() {
     const range = document.getElementById('chartRange').value;
     const data = getChartData(range);
     
-    renderPainChart(data);
-    renderSymptomsChart(data);
-    renderMedsChart(data);
+    renderCombinedChart(data);
     renderStats(data);
 }
 
@@ -594,106 +632,156 @@ function getChartData(range) {
     };
 }
 
-function renderPainChart(data) {
-    const ctx = document.getElementById('painChart').getContext('2d');
+function renderCombinedChart(data) {
+    const ctx = document.getElementById('combinedChart').getContext('2d');
     
-    if (charts.pain) charts.pain.destroy();
+    if (charts.combined) charts.combined.destroy();
     
-    charts.pain = new Chart(ctx, {
+    charts.combined = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.dates,
             datasets: [
+                // Pain levels
                 {
                     label: 'Overall Pain',
                     data: data.entries.map(e => e.painLevel),
                     borderColor: '#667eea',
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    fill: true,
-                    tension: 0.3
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y'
                 },
                 {
                     label: 'Peak Pain',
                     data: data.entries.map(e => e.peakPain),
                     borderColor: '#e74c3c',
                     backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { min: 0, max: 4 }
-            }
-        }
-    });
-}
-
-function renderSymptomsChart(data) {
-    const ctx = document.getElementById('symptomsChart').getContext('2d');
-    
-    if (charts.symptoms) charts.symptoms.destroy();
-    
-    charts.symptoms = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.dates,
-            datasets: [
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                // Symptoms
                 {
                     label: 'Tinnitus',
                     data: data.entries.map(e => e.tinnitus),
                     borderColor: '#f39c12',
-                    tension: 0.3
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y'
                 },
                 {
                     label: 'Ocular',
                     data: data.entries.map(e => e.ocular),
                     borderColor: '#9b59b6',
-                    tension: 0.3
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y'
                 },
                 {
-                    label: 'Nausea',
-                    data: data.entries.map(e => e.nausea),
+                    label: 'Sleep Issues',
+                    data: data.entries.map(e => e.sleepIssues),
                     borderColor: '#27ae60',
-                    tension: 0.3
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y'
+                },
+                // Medications
+                {
+                    label: 'Paracetamol',
+                    data: data.entries.map(e => e.paracetamol || 0),
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.3)',
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y2'
+                },
+                {
+                    label: 'Ibuprofen',
+                    data: data.entries.map(e => e.ibuprofen || 0),
+                    borderColor: '#e67e22',
+                    backgroundColor: 'rgba(230, 126, 34, 0.3)',
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y2'
+                },
+                {
+                    label: 'Aspirin',
+                    data: data.entries.map(e => e.aspirin || 0),
+                    borderColor: '#1abc9c',
+                    backgroundColor: 'rgba(26, 188, 156, 0.3)',
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y2'
+                },
+                {
+                    label: 'Sumatriptan',
+                    data: data.entries.map(e => e.triptan || 0),
+                    borderColor: '#8e44ad',
+                    backgroundColor: 'rgba(142, 68, 173, 0.3)',
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y2'
+                },
+                {
+                    label: 'Ice',
+                    data: data.entries.map(e => e.codeine || 0),
+                    borderColor: '#00bcd4',
+                    backgroundColor: 'rgba(0, 188, 212, 0.3)',
+                    tension: 0.3,
+                    hidden: true,
+                    yAxisID: 'y2'
                 }
             ]
         },
         options: {
             responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8
+                    },
+                    onClick: function(e, legendItem, legend) {
+                        const index = legendItem.datasetIndex;
+                        const ci = legend.chart;
+                        const meta = ci.getDatasetMeta(index);
+                        meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
+                        ci.update();
+                    }
+                }
+            },
             scales: {
-                y: { min: 0, max: 4 }
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    min: 0,
+                    max: 4,
+                    title: {
+                        display: true,
+                        text: 'Pain/Symptoms (0-4)'
+                    }
+                },
+                y2: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    title: {
+                        display: true,
+                        text: 'Medication Doses'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
             }
-        }
-    });
-}
-
-function renderMedsChart(data) {
-    const ctx = document.getElementById('medsChart').getContext('2d');
-    
-    if (charts.meds) charts.meds.destroy();
-    
-    const totals = {
-        paracetamol: data.entries.reduce((sum, e) => sum + (e.paracetamol || 0), 0),
-        ibuprofen: data.entries.reduce((sum, e) => sum + (e.ibuprofen || 0), 0),
-        aspirin: data.entries.reduce((sum, e) => sum + (e.aspirin || 0), 0),
-        triptan: data.entries.reduce((sum, e) => sum + (e.triptan || 0), 0),
-        codeine: data.entries.reduce((sum, e) => sum + (e.codeine || 0), 0)
-    };
-    
-    charts.meds = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 'Ice'],
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: ['#667eea', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6']
-            }]
-        },
-        options: {
-            responsive: true
         }
     });
 }
@@ -710,6 +798,14 @@ function renderStats(data) {
     const maxPain = Math.max(...data.entries.map(e => e.peakPain));
     const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
     const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
+    
+    // Count distinct days with painkillers (Paracetamol, Ibuprofen, Aspirin, Sumatriptan - not Ice or Other)
+    const daysWithPainkillers = data.entries.filter(e => 
+        (e.paracetamol || 0) > 0 || 
+        (e.ibuprofen || 0) > 0 || 
+        (e.aspirin || 0) > 0 || 
+        (e.triptan || 0) > 0
+    ).length;
     
     statsPanel.innerHTML = `
         <div class="stat-item">
@@ -732,6 +828,10 @@ function renderStats(data) {
             <span class="stat-label">Total Medication Doses</span>
             <span class="stat-value">${totalMeds}</span>
         </div>
+        <div class="stat-item">
+            <span class="stat-label">Distinct Days of Painkillers</span>
+            <span class="stat-value">${daysWithPainkillers} (${((daysWithPainkillers/data.entries.length)*100).toFixed(0)}%)</span>
+        </div>
     `;
 }
 
@@ -749,12 +849,12 @@ function exportCSV() {
         return;
     }
     
-    const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Nausea', 
+    const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Sleep Issues', 
                      'Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 
                      'Ice', 'Other Meds', 'Triggers', 'Notes'];
     
     const rows = filteredEntries.map(([date, e]) => [
-        date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.nausea,
+        date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.sleepIssues,
         e.paracetamol, e.ibuprofen, e.aspirin, e.triptan,
         e.codeine, `"${e.otherMeds || ''}"`, `"${e.triggers || ''}"`, `"${e.notes || ''}"`
     ]);
