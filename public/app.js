@@ -157,7 +157,7 @@ function setupEventListeners() {
     });
 
     // History
-    document.getElementById('historyMonth').addEventListener('change', loadHistory);
+    document.getElementById('historyMonth').addEventListener('change', () => loadHistory(false));
     document.getElementById('showAllHistory').addEventListener('click', () => loadHistory(true));
 
     // Charts
