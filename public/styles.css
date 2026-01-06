@@ -4,11 +4,38 @@
     padding: 0;
 }
 
+:root {
+    --primary: #667eea;
+    --primary-dark: #764ba2;
+    --accent: #667eea;
+    --bg-gradient-start: #667eea;
+    --bg-gradient-end: #764ba2;
+    --success: #28a745;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
     min-height: 100vh;
     padding: 20px;
+}
+
+/* Graphite Theme */
+body[data-theme="graphite"] {
+    --primary: #4a4a4a;
+    --primary-dark: #2d2d2d;
+    --accent: #6b6b6b;
+    --bg-gradient-start: #434343;
+    --bg-gradient-end: #2c2c2c;
+}
+
+/* Aqua Theme */
+body[data-theme="aqua"] {
+    --primary: #00b4d8;
+    --primary-dark: #0077b6;
+    --accent: #00b4d8;
+    --bg-gradient-start: #48cae4;
+    --bg-gradient-end: #0096c7;
 }
 
 .container {
@@ -796,4 +823,105 @@ fieldset > label textarea:focus {
         transform: translateX(0);
         opacity: 1;
     }
+}
+
+/* Theme Section */
+.theme-section {
+    padding-top: 25px;
+    border-top: 2px solid #e0e0e0;
+    margin-top: 25px;
+}
+
+.theme-section h3 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.theme-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.theme-btn {
+    padding: 10px 20px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.theme-btn:hover {
+    border-color: var(--primary);
+}
+
+.theme-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Apply theme colors to UI elements */
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.date-nav {
+    background: var(--primary);
+}
+
+.scale-value {
+    color: var(--primary);
+}
+
+.stepper-btn {
+    color: var(--primary);
+}
+
+.stepper-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.save-btn,
+.export-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+.history-date {
+    color: var(--primary);
+}
+
+.history-actions .edit-btn {
+    background: var(--primary);
+}
+
+.stat-value {
+    color: var(--primary);
+}
+
+legend {
+    color: var(--primary);
+}
+
+.auth-btn:first-child {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+.skip-btn {
+    color: var(--primary);
+}
+
+.auth-box input:focus,
+fieldset > label input:focus,
+fieldset > label textarea:focus {
+    border-color: var(--primary);
+}
+
+.history-controls button,
+.chart-controls button {
+    background: var(--primary);
 }

@@ -72,10 +72,12 @@ function setupAuthStateListener() {
             currentUser = user;
             useLocalStorage = false;
             await loadEntriesFromFirestore();
+            await loadThemePreference();
             showMainApp();
             updateAuthStatus();
         } else if (useLocalStorage) {
             loadEntriesFromLocalStorage();
+            loadThemePreference();
             showMainApp();
             updateAuthStatus();
         }
@@ -149,6 +151,11 @@ function setupEventListeners() {
     document.getElementById('exportReport').addEventListener('click', exportReport);
     document.getElementById('exportJSON').addEventListener('click', exportJSON);
     document.getElementById('importBtn').addEventListener('click', importJSON);
+
+    // Theme buttons
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+    });
 }
 
 // Auth Handlers
@@ -424,7 +431,6 @@ function populateForm(entry) {
     form.otherMeds.value = entry.otherMeds || '';
     
     // Additional
-    form.duration.value = entry.duration || 0;
     form.triggers.value = entry.triggers || '';
     form.notes.value = entry.notes || '';
     
@@ -471,7 +477,6 @@ function autoSave() {
             triptan: parseInt(form.triptan.value) || 0,
             codeine: parseInt(form.codeine.value) || 0,
             otherMeds: form.otherMeds.value.trim(),
-            duration: parseFloat(form.duration.value) || 0,
             triggers: form.triggers.value.trim(),
             notes: form.notes.value.trim()
         };
@@ -519,7 +524,6 @@ function loadHistory(showAll = false) {
             <div class="history-summary">
                 <span>Pain: ${entry.painLevel}/4</span>
                 <span>Peak: ${entry.peakPain}/4</span>
-                <span>Duration: ${entry.duration}h</span>
                 ${getTotalMeds(entry) > 0 ? `<span>Meds: ${getTotalMeds(entry)} doses</span>` : ''}
             </div>
             <div class="history-actions">
@@ -702,7 +706,6 @@ function renderStats(data) {
     const avgPain = (data.entries.reduce((sum, e) => sum + e.painLevel, 0) / data.entries.length).toFixed(1);
     const maxPain = Math.max(...data.entries.map(e => e.peakPain));
     const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
-    const avgDuration = (data.entries.reduce((sum, e) => sum + (e.duration || 0), 0) / data.entries.length).toFixed(1);
     const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
     
     statsPanel.innerHTML = `
@@ -721,10 +724,6 @@ function renderStats(data) {
         <div class="stat-item">
             <span class="stat-label">Highest Pain Level</span>
             <span class="stat-value">${maxPain}/4</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Average Duration</span>
-            <span class="stat-value">${avgDuration} hours</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Total Medication Doses</span>
@@ -749,12 +748,12 @@ function exportCSV() {
     
     const headers = ['Date', 'Pain Level', 'Peak Pain', 'Tinnitus', 'Ocular', 'Nausea', 
                      'Paracetamol', 'Ibuprofen', 'Aspirin', 'Sumatriptan', 
-                     'Ice', 'Other Meds', 'Duration', 'Triggers', 'Notes'];
+                     'Ice', 'Other Meds', 'Triggers', 'Notes'];
     
     const rows = filteredEntries.map(([date, e]) => [
         date, e.painLevel, e.peakPain, e.tinnitus, e.ocular, e.nausea,
         e.paracetamol, e.ibuprofen, e.aspirin, e.triptan,
-        e.codeine, `"${e.otherMeds || ''}"`, e.duration, `"${e.triggers || ''}"`, `"${e.notes || ''}"`
+        e.codeine, `"${e.otherMeds || ''}"`, `"${e.triggers || ''}"`, `"${e.notes || ''}"`
     ]);
     
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -837,7 +836,6 @@ function exportReport() {
             <th>Date</th>
             <th>Pain</th>
             <th>Peak</th>
-            <th>Duration</th>
             <th>Medications</th>
             <th>Triggers</th>
         </tr>
@@ -846,7 +844,6 @@ function exportReport() {
             <td>${date}</td>
             <td>${e.painLevel}/4</td>
             <td>${e.peakPain}/4</td>
-            <td>${e.duration}h</td>
             <td>${getMedsSummary(e)}</td>
             <td>${e.triggers || '-'}</td>
         </tr>
@@ -934,4 +931,53 @@ function showToast(message, type = '') {
     document.body.appendChild(toast);
     
     setTimeout(() => toast.remove(), 3000);
+}
+
+// Theme Management
+let currentTheme = 'default';
+
+function setTheme(theme) {
+    currentTheme = theme;
+    document.body.dataset.theme = theme;
+    
+    // Update active button
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    
+    // Save to user profile
+    saveThemePreference(theme);
+}
+
+async function saveThemePreference(theme) {
+    if (currentUser) {
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'preferences');
+            await setDoc(userRef, { theme, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (error) {
+            console.error('Error saving theme:', error);
+        }
+    } else {
+        localStorage.setItem('headacheTracker_theme', theme);
+    }
+}
+
+async function loadThemePreference() {
+    let theme = 'default';
+    
+    if (currentUser) {
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'preferences');
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists() && docSnap.data().theme) {
+                theme = docSnap.data().theme;
+            }
+        } catch (error) {
+            console.error('Error loading theme:', error);
+        }
+    } else {
+        theme = localStorage.getItem('headacheTracker_theme') || 'default';
+    }
+    
+    setTheme(theme);
 }

@@ -159,10 +159,6 @@
                     <fieldset>
                         <legend>Additional Information</legend>
                         <label>
-                            <span>Duration (hours)</span>
-                            <input type="number" name="duration" min="0" max="24" step="0.5" value="0">
-                        </label>
-                        <label>
                             <span>Possible Triggers</span>
                             <input type="text" name="triggers" placeholder="e.g., stress, sleep, food...">
                         </label>
@@ -256,6 +252,15 @@
                         <h3>Import Data</h3>
                         <input type="file" id="importFile" accept=".json">
                         <button id="importBtn" class="import-btn">Import Backup</button>
+                    </div>
+                    
+                    <div class="theme-section">
+                        <h3>Theme</h3>
+                        <div class="theme-options">
+                            <button class="theme-btn active" data-theme="default">Default</button>
+                            <button class="theme-btn" data-theme="graphite">Graphite</button>
+                            <button class="theme-btn" data-theme="aqua">Aqua</button>
+                        </div>
                     </div>
                 </div>
             </section>
