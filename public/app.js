@@ -434,7 +434,7 @@ function populateForm(entry) {
     // Symptoms
     form.tinnitus.value = entry.tinnitus || 0;
     form.ocular.value = entry.ocular || 0;
-    form.sleepIssues.value = entry.sleepIssues || 0;
+    form.elements['sleepIssues'].value = entry.sleepIssues || 0;
     
     // Medications
     form.paracetamol.value = entry.paracetamol || 0;
@@ -472,7 +472,7 @@ async function forceSaveCurrentForm() {
         peakPain: parseInt(form.peakPain.value) || 0,
         tinnitus: parseInt(form.tinnitus.value) || 0,
         ocular: parseInt(form.ocular.value) || 0,
-        sleepIssues: parseInt(form.sleepIssues.value) || 0,
+        sleepIssues: parseInt(form.elements['sleepIssues'].value) || 0,
         paracetamol: parseInt(form.paracetamol.value) || 0,
         ibuprofen: parseInt(form.ibuprofen.value) || 0,
         aspirin: parseInt(form.aspirin.value) || 0,
@@ -513,7 +513,7 @@ function autoSave() {
             peakPain: parseInt(form.peakPain.value) || 0,
             tinnitus: parseInt(form.tinnitus.value) || 0,
             ocular: parseInt(form.ocular.value) || 0,
-            sleepIssues: parseInt(form.sleepIssues.value) || 0,
+            sleepIssues: parseInt(form.elements['sleepIssues'].value) || 0,
             paracetamol: parseInt(form.paracetamol.value) || 0,
             ibuprofen: parseInt(form.ibuprofen.value) || 0,
             aspirin: parseInt(form.aspirin.value) || 0,
