@@ -269,4 +269,328 @@ test.describe('Headache Tracker Tests', () => {
         
         console.log('✓ Theme switching works');
     });
+
+    test('11. Full field persistence - populate all fields, navigate away and back', async ({ page }) => {
+        const testDate = '2026-01-10';
+        
+        // Navigate to test date
+        await page.fill('#logDate', testDate);
+        await page.waitForTimeout(500);
+        
+        // Clear any existing data first
+        await page.click('#clearBtn');
+        await page.waitForTimeout(300);
+        
+        // Populate ALL fields
+        // Pain levels (sliders)
+        await page.locator('input[name="painLevel"]').fill('3');
+        await page.locator('input[name="peakPain"]').fill('4');
+        
+        // Symptoms (sliders)
+        await page.locator('input[name="tinnitus"]').fill('2');
+        await page.locator('input[name="ocular"]').fill('1');
+        await page.locator('input[name="sleepIssues"]').fill('3');
+        
+        // Medications (number inputs via steppers)
+        const paracetamolPlus = page.locator('input[name="paracetamol"]').locator('..').locator('.plus');
+        await paracetamolPlus.click();
+        await paracetamolPlus.click(); // 2
+        
+        const ibuprofenPlus = page.locator('input[name="ibuprofen"]').locator('..').locator('.plus');
+        await ibuprofenPlus.click(); // 1
+        
+        const aspirinPlus = page.locator('input[name="aspirin"]').locator('..').locator('.plus');
+        await aspirinPlus.click();
+        await aspirinPlus.click();
+        await aspirinPlus.click(); // 3
+        
+        const triptanPlus = page.locator('input[name="triptan"]').locator('..').locator('.plus');
+        await triptanPlus.click(); // 1
+        
+        const codeineplus = page.locator('input[name="codeine"]').locator('..').locator('.plus');
+        await codeineplus.click();
+        await codeineplus.click(); // 2
+        
+        // Text fields
+        await page.fill('input[name="otherMeds"]', 'Test Other Med');
+        await page.fill('input[name="triggers"]', 'stress, weather, lack of sleep');
+        await page.fill('textarea[name="notes"]', 'Comprehensive test notes for persistence testing');
+        
+        // Wait for auto-save
+        await page.waitForTimeout(2000);
+        
+        // Verify save status
+        const saveStatus = await page.locator('#autoSaveStatus').textContent();
+        expect(saveStatus).toContain('Saved');
+        
+        console.log('✓ All fields populated and saved for test date');
+        
+        // Navigate to NEXT day
+        await page.click('#nextDay');
+        await page.waitForTimeout(500);
+        
+        // Verify ALL fields are blank/default (0) for the new day
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="peakPain"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="tinnitus"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="ocular"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="sleepIssues"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="paracetamol"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="ibuprofen"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="aspirin"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="triptan"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="codeine"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="otherMeds"]').inputValue()).toBe('');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('');
+        expect(await page.locator('textarea[name="notes"]').inputValue()).toBe('');
+        
+        console.log('✓ Next day shows all blank/default values');
+        
+        // Navigate BACK to original day
+        await page.click('#prevDay');
+        await page.waitForTimeout(500);
+        
+        // Verify ALL original values are restored
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="peakPain"]').inputValue()).toBe('4');
+        expect(await page.locator('input[name="tinnitus"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="ocular"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="sleepIssues"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="paracetamol"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="ibuprofen"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="aspirin"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="triptan"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="codeine"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="otherMeds"]').inputValue()).toBe('Test Other Med');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('stress, weather, lack of sleep');
+        expect(await page.locator('textarea[name="notes"]').inputValue()).toBe('Comprehensive test notes for persistence testing');
+        
+        console.log('✓ Original day values restored correctly');
+    });
+
+    test('12. Full field edit persistence - modify all fields and verify', async ({ page }) => {
+        const testDate = '2026-01-11';
+        
+        // Navigate to test date
+        await page.fill('#logDate', testDate);
+        await page.waitForTimeout(500);
+        
+        // Clear and set up INITIAL values first
+        await page.click('#clearBtn');
+        await page.waitForTimeout(300);
+        
+        // Set initial values
+        await page.locator('input[name="painLevel"]').fill('3');
+        await page.locator('input[name="peakPain"]').fill('4');
+        await page.locator('input[name="tinnitus"]').fill('2');
+        await page.locator('input[name="ocular"]').fill('1');
+        await page.locator('input[name="sleepIssues"]').fill('3');
+        
+        // Set initial medication values
+        let paracetamolPlus = page.locator('input[name="paracetamol"]').locator('..').locator('.plus');
+        await paracetamolPlus.click();
+        await paracetamolPlus.click(); // 2
+        
+        let ibuprofenPlus = page.locator('input[name="ibuprofen"]').locator('..').locator('.plus');
+        await ibuprofenPlus.click(); // 1
+        
+        let aspirinPlus = page.locator('input[name="aspirin"]').locator('..').locator('.plus');
+        await aspirinPlus.click();
+        await aspirinPlus.click();
+        await aspirinPlus.click(); // 3
+        
+        let triptanPlus = page.locator('input[name="triptan"]').locator('..').locator('.plus');
+        await triptanPlus.click(); // 1
+        
+        let codeinePlus = page.locator('input[name="codeine"]').locator('..').locator('.plus');
+        await codeinePlus.click();
+        await codeinePlus.click(); // 2
+        
+        await page.fill('input[name="otherMeds"]', 'Initial Other Med');
+        await page.fill('input[name="triggers"]', 'initial triggers');
+        await page.fill('textarea[name="notes"]', 'Initial notes');
+        
+        // Wait for auto-save
+        await page.waitForTimeout(2000);
+        
+        // Verify initial values were saved
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('3');
+        
+        console.log('✓ Initial values set up');
+        
+        // Now EDIT ALL fields to new values
+        // Pain levels
+        await page.locator('input[name="painLevel"]').fill('1');
+        await page.locator('input[name="peakPain"]').fill('2');
+        
+        // Symptoms
+        await page.locator('input[name="tinnitus"]').fill('4');
+        await page.locator('input[name="ocular"]').fill('3');
+        await page.locator('input[name="sleepIssues"]').fill('0');
+        
+        // Medications - reset and set new values
+        // First clear by clicking minus buttons
+        const paracetamolMinus = page.locator('input[name="paracetamol"]').locator('..').locator('.minus');
+        await paracetamolMinus.click();
+        await paracetamolMinus.click(); // Now 0
+        paracetamolPlus = page.locator('input[name="paracetamol"]').locator('..').locator('.plus');
+        await paracetamolPlus.click();
+        await paracetamolPlus.click();
+        await paracetamolPlus.click();
+        await paracetamolPlus.click(); // Now 4
+        
+        const ibuprofenMinus = page.locator('input[name="ibuprofen"]').locator('..').locator('.minus');
+        await ibuprofenMinus.click(); // Now 0
+        
+        const aspirinMinus = page.locator('input[name="aspirin"]').locator('..').locator('.minus');
+        await aspirinMinus.click();
+        await aspirinMinus.click();
+        await aspirinMinus.click(); // Now 0
+        aspirinPlus = page.locator('input[name="aspirin"]').locator('..').locator('.plus');
+        await aspirinPlus.click(); // Now 1
+        
+        const triptanMinus = page.locator('input[name="triptan"]').locator('..').locator('.minus');
+        await triptanMinus.click(); // Now 0
+        triptanPlus = page.locator('input[name="triptan"]').locator('..').locator('.plus');
+        await triptanPlus.click();
+        await triptanPlus.click(); // Now 2
+        
+        const codeineMinus = page.locator('input[name="codeine"]').locator('..').locator('.minus');
+        await codeineMinus.click();
+        await codeineMinus.click(); // Now 0
+        codeinePlus = page.locator('input[name="codeine"]').locator('..').locator('.plus');
+        await codeinePlus.click();
+        await codeinePlus.click();
+        await codeinePlus.click(); // Now 3
+        
+        // Text fields - update
+        await page.fill('input[name="otherMeds"]', 'Updated Other Med');
+        await page.fill('input[name="triggers"]', 'new triggers, different causes');
+        await page.fill('textarea[name="notes"]', 'Updated notes after editing all fields');
+        
+        // Wait for auto-save
+        await page.waitForTimeout(2000);
+        
+        console.log('✓ All fields edited to new values');
+        
+        // Navigate to NEXT day
+        await page.click('#nextDay');
+        await page.waitForTimeout(500);
+        
+        // Verify next day is still blank
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="otherMeds"]').inputValue()).toBe('');
+        
+        console.log('✓ Next day still shows blank values');
+        
+        // Navigate BACK to original day
+        await page.click('#prevDay');
+        await page.waitForTimeout(500);
+        
+        // Verify ALL EDITED values are restored
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="peakPain"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="tinnitus"]').inputValue()).toBe('4');
+        expect(await page.locator('input[name="ocular"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="sleepIssues"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="paracetamol"]').inputValue()).toBe('4');
+        expect(await page.locator('input[name="ibuprofen"]').inputValue()).toBe('0');
+        expect(await page.locator('input[name="aspirin"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="triptan"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="codeine"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="otherMeds"]').inputValue()).toBe('Updated Other Med');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('new triggers, different causes');
+        expect(await page.locator('textarea[name="notes"]').inputValue()).toBe('Updated notes after editing all fields');
+        
+        console.log('✓ All edited values restored correctly');
+    });
+
+    test('13. Text field persistence on immediate navigation (no wait)', async ({ page }) => {
+        const testDate = '2026-01-12';
+        
+        // Navigate to test date
+        await page.fill('#logDate', testDate);
+        await page.waitForTimeout(500);
+        
+        // Clear form
+        await page.click('#clearBtn');
+        await page.waitForTimeout(300);
+        
+        // Type in Other Medication field
+        await page.fill('input[name="otherMeds"]', 'Quick nav test');
+        
+        // Immediately navigate away (don't wait for auto-save)
+        await page.click('#prevDay');
+        await page.waitForTimeout(500);
+        
+        // Navigate back
+        await page.click('#nextDay');
+        await page.waitForTimeout(500);
+        
+        // The value should be saved
+        const otherMedsValue = await page.locator('input[name="otherMeds"]').inputValue();
+        expect(otherMedsValue).toBe('Quick nav test');
+        
+        console.log('✓ Text field saved even with immediate navigation');
+    });
+
+    test('14. Multiple date jumps with different data per day', async ({ page }) => {
+        // Set up data for 3 different days
+        const day1 = '2026-01-15';
+        const day2 = '2026-01-16';
+        const day3 = '2026-01-17';
+        
+        // Day 1 - pain level 1
+        await page.fill('#logDate', day1);
+        await page.waitForTimeout(300);
+        await page.click('#clearBtn');
+        await page.locator('input[name="painLevel"]').fill('1');
+        await page.fill('input[name="triggers"]', 'Day 1 triggers');
+        await page.waitForTimeout(1500);
+        
+        // Day 2 - pain level 2
+        await page.fill('#logDate', day2);
+        await page.waitForTimeout(300);
+        await page.click('#clearBtn');
+        await page.locator('input[name="painLevel"]').fill('2');
+        await page.fill('input[name="triggers"]', 'Day 2 triggers');
+        await page.waitForTimeout(1500);
+        
+        // Day 3 - pain level 3
+        await page.fill('#logDate', day3);
+        await page.waitForTimeout(300);
+        await page.click('#clearBtn');
+        await page.locator('input[name="painLevel"]').fill('3');
+        await page.fill('input[name="triggers"]', 'Day 3 triggers');
+        await page.waitForTimeout(1500);
+        
+        console.log('✓ Data set for 3 days');
+        
+        // Now jump around and verify each day has correct data
+        // Jump to Day 1
+        await page.fill('#logDate', day1);
+        await page.waitForTimeout(500);
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('Day 1 triggers');
+        
+        // Jump to Day 3
+        await page.fill('#logDate', day3);
+        await page.waitForTimeout(500);
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('3');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('Day 3 triggers');
+        
+        // Jump to Day 2
+        await page.fill('#logDate', day2);
+        await page.waitForTimeout(500);
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('2');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('Day 2 triggers');
+        
+        // Back to Day 1 one more time
+        await page.fill('#logDate', day1);
+        await page.waitForTimeout(500);
+        expect(await page.locator('input[name="painLevel"]').inputValue()).toBe('1');
+        expect(await page.locator('input[name="triggers"]').inputValue()).toBe('Day 1 triggers');
+        
+        console.log('✓ All 3 days retain their unique data after jumping between them');
+    });
 });
