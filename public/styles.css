@@ -545,14 +545,12 @@ fieldset > label textarea:focus {
 }
 
 .history-item {
-    display: grid;
-    grid-template-columns: 120px 1fr auto;
-    gap: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding: 15px;
     background: #f8f9fa;
     border-radius: 10px;
-    align-items: center;
-    cursor: pointer;
     transition: background 0.2s;
 }
 
@@ -560,9 +558,71 @@ fieldset > label textarea:focus {
     background: #e8f4fd;
 }
 
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
 .history-date {
     font-weight: 600;
+    font-size: 1.1rem;
     color: #667eea;
+}
+
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.history-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.history-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-metrics .metric {
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.history-metrics .metric label {
+    color: #666;
+    margin-right: 5px;
+}
+
+.history-metrics .metric.none {
+    color: #999;
+    font-style: italic;
+}
+
+.history-notes {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.history-note {
+    font-size: 0.9rem;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.history-note label {
+    font-weight: 600;
+    color: #666;
+    margin-right: 8px;
 }
 
 .history-summary {
@@ -571,6 +631,11 @@ fieldset > label textarea:focus {
     flex-wrap: wrap;
     font-size: 0.9rem;
     color: #666;
+}
+
+.history-actions {
+    display: flex;
+    gap: 5px;
 }
 
 .history-actions button {
@@ -589,7 +654,6 @@ fieldset > label textarea:focus {
 .history-actions .delete-btn {
     background: #e74c3c;
     color: white;
-    margin-left: 5px;
 }
 
 .no-entries {

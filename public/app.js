@@ -593,16 +593,48 @@ function loadHistory(showAll = false) {
     
     historyList.innerHTML = filteredEntries.map(([date, entry]) => `
         <div class="history-item" data-date="${date}">
-            <div class="history-date">${formatDate(date)}</div>
-            <div class="history-summary">
-                <span>Pain: ${entry.painLevel}/4</span>
-                <span>Peak: ${entry.peakPain}/4</span>
-                ${getTotalMeds(entry) > 0 ? `<span>Meds: ${getTotalMeds(entry)} doses</span>` : ''}
+            <div class="history-header">
+                <div class="history-date">${formatDate(date)}</div>
+                <div class="history-actions">
+                    <button class="edit-btn" onclick="editEntry('${date}')">Edit</button>
+                    <button class="delete-btn" onclick="confirmDelete('${date}')">Delete</button>
+                </div>
             </div>
-            <div class="history-actions">
-                <button class="edit-btn" onclick="editEntry('${date}')">Edit</button>
-                <button class="delete-btn" onclick="confirmDelete('${date}')">Delete</button>
+            <div class="history-grid">
+                <div class="history-section">
+                    <h4>Pain Levels</h4>
+                    <div class="history-metrics">
+                        <span class="metric"><label>Overall:</label> ${entry.painLevel}/4</span>
+                        <span class="metric"><label>Peak:</label> ${entry.peakPain}/4</span>
+                    </div>
+                </div>
+                <div class="history-section">
+                    <h4>Symptoms</h4>
+                    <div class="history-metrics">
+                        <span class="metric"><label>Tinnitus:</label> ${entry.tinnitus || 0}/4</span>
+                        <span class="metric"><label>Ocular:</label> ${entry.ocular || 0}/4</span>
+                        <span class="metric"><label>Sleep:</label> ${entry.sleepIssues || 0}/4</span>
+                    </div>
+                </div>
+                <div class="history-section">
+                    <h4>Medications</h4>
+                    <div class="history-metrics">
+                        ${entry.paracetamol ? `<span class="metric"><label>Paracetamol:</label> ${entry.paracetamol}</span>` : ''}
+                        ${entry.ibuprofen ? `<span class="metric"><label>Ibuprofen:</label> ${entry.ibuprofen}</span>` : ''}
+                        ${entry.aspirin ? `<span class="metric"><label>Aspirin:</label> ${entry.aspirin}</span>` : ''}
+                        ${entry.triptan ? `<span class="metric"><label>Sumatriptan:</label> ${entry.triptan}</span>` : ''}
+                        ${entry.codeine ? `<span class="metric"><label>Ice:</label> ${entry.codeine}</span>` : ''}
+                        ${entry.otherMeds ? `<span class="metric"><label>Other:</label> ${entry.otherMeds}</span>` : ''}
+                        ${!entry.paracetamol && !entry.ibuprofen && !entry.aspirin && !entry.triptan && !entry.codeine && !entry.otherMeds ? '<span class="metric none">None</span>' : ''}
+                    </div>
+                </div>
             </div>
+            ${entry.triggers || entry.notes ? `
+            <div class="history-notes">
+                ${entry.triggers ? `<div class="history-note"><label>Triggers:</label> ${entry.triggers}</div>` : ''}
+                ${entry.notes ? `<div class="history-note"><label>Notes:</label> ${entry.notes}</div>` : ''}
+            </div>
+            ` : ''}
         </div>
     `).join('');
 }
