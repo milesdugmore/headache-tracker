@@ -43,6 +43,7 @@ let useLocalStorage = false;
 let entries = {};
 let charts = {};
 let isLoadingForm = false; // Flag to prevent auto-save during form population
+let previousDate = null; // Track the previous date for saving before navigation
 
 // DOM Elements
 const authSection = document.getElementById('authSection');
@@ -101,7 +102,15 @@ function setupEventListeners() {
     document.getElementById('prevDay').addEventListener('click', () => navigateDate(-1));
     document.getElementById('nextDay').addEventListener('click', () => navigateDate(1));
     document.getElementById('todayBtn').addEventListener('click', goToToday);
-    logDate.addEventListener('change', async () => await loadEntryForDate(logDate.value));
+    logDate.addEventListener('change', async () => {
+        // Save any pending changes to the PREVIOUS date before switching
+        if (saveTimeout && previousDate) {
+            clearTimeout(saveTimeout);
+            saveTimeout = null;
+            await forceSaveForDate(previousDate);
+        }
+        await loadEntryForDate(logDate.value);
+    });
 
     // Form
     document.getElementById('clearBtn').addEventListener('click', clearForm);
@@ -291,6 +300,13 @@ function initializeDatePicker() {
 }
 
 async function navigateDate(days) {
+    // Save any pending changes for current date before switching
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+        await forceSaveForDate(previousDate || logDate.value);
+    }
+    
     const current = new Date(logDate.value);
     current.setDate(current.getDate() + days);
     logDate.value = current.toISOString().split('T')[0];
@@ -298,6 +314,13 @@ async function navigateDate(days) {
 }
 
 async function goToToday() {
+    // Save any pending changes for current date before switching
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+        await forceSaveForDate(previousDate || logDate.value);
+    }
+    
     logDate.value = new Date().toISOString().split('T')[0];
     await loadEntryForDate(logDate.value);
 }
@@ -391,12 +414,10 @@ async function deleteEntry(date) {
 }
 
 async function loadEntryForDate(date) {
-    // Save any pending changes for current date before switching
+    // Clear any pending auto-save timeout (saving handled by caller before date change)
     if (saveTimeout) {
         clearTimeout(saveTimeout);
         saveTimeout = null;
-        // Force save current form before switching
-        await forceSaveCurrentForm();
     }
     
     // Clear auto-save status
@@ -417,6 +438,9 @@ async function loadEntryForDate(date) {
         entryStatus.className = 'entry-status new';
         clearForm();
     }
+    
+    // Update previousDate to track what date we're currently on
+    previousDate = date;
     
     // Re-enable auto-save after a short delay
     setTimeout(() => {
@@ -461,10 +485,11 @@ function clearForm() {
     });
 }
 
-// Force save current form (used when changing dates)
-async function forceSaveCurrentForm() {
+// Force save form to a specific date (used when changing dates)
+async function forceSaveForDate(date) {
+    if (!date) return;
+    
     const form = headacheForm;
-    const date = logDate.value;
     
     const data = {
         date,
@@ -488,6 +513,11 @@ async function forceSaveCurrentForm() {
     } catch (error) {
         console.error('Force save error:', error);
     }
+}
+
+// Force save current form (legacy - uses logDate.value)
+async function forceSaveCurrentForm() {
+    await forceSaveForDate(logDate.value);
 }
 
 // Auto-save with debouncing
