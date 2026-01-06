@@ -835,6 +835,7 @@ function renderCombinedChart(data) {
                     display: true,
                     position: 'right',
                     min: 0,
+                    max: 6,
                     title: {
                         display: true,
                         text: 'Medication Doses'
