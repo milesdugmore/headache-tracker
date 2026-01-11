@@ -671,40 +671,97 @@ window.confirmDelete = async function(date) {
 function renderCharts() {
     const range = document.getElementById('chartRange').value;
     const data = getChartData(range);
-    
+
     renderCombinedChart(data);
     renderStats(data);
+    renderTrends();
 }
 
 function getChartData(range) {
     let filteredEntries = Object.entries(entries);
-    
+    let calendarDays = 0;
+
     if (range !== 'all') {
         const days = parseInt(range);
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - days);
         filteredEntries = filteredEntries.filter(([date]) => new Date(date) >= cutoff);
+        calendarDays = days;
+    } else {
+        // For 'all time', calculate days from earliest entry to today
+        if (filteredEntries.length > 0) {
+            const sortedDates = filteredEntries.map(([date]) => new Date(date)).sort((a, b) => a - b);
+            const earliest = sortedDates[0];
+            const today = new Date();
+            calendarDays = Math.ceil((today - earliest) / (1000 * 60 * 60 * 24)) + 1;
+        }
     }
-    
+
     filteredEntries.sort((a, b) => new Date(a[0]) - new Date(b[0]));
-    
+
     return {
         dates: filteredEntries.map(([date]) => formatDate(date)),
-        entries: filteredEntries.map(([, entry]) => entry)
+        entries: filteredEntries.map(([, entry]) => entry),
+        calendarDays: calendarDays
     };
+}
+
+function renderChartLegend(chart) {
+    const legendContainer = document.getElementById('chartLegend');
+    if (!legendContainer) return;
+
+    const datasets = chart.data.datasets;
+    legendContainer.innerHTML = datasets.map((dataset, index) => {
+        // Check the dataset's hidden property (initial state) since meta.hidden is null initially
+        const isHidden = dataset.hidden === true;
+        const color = dataset.borderColor || dataset.backgroundColor;
+        const isBar = dataset.type === 'bar';
+        return `
+            <button class="legend-item ${isHidden ? 'hidden' : ''}" data-index="${index}">
+                <span class="legend-color" style="background: ${color}; ${isBar ? 'border-radius: 2px;' : 'border-radius: 50%;'}"></span>
+                <span class="legend-label">${dataset.label}</span>
+            </button>
+        `;
+    }).join('');
+
+    // Add click handlers
+    legendContainer.querySelectorAll('.legend-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const index = parseInt(item.dataset.index);
+            const dataset = chart.data.datasets[index];
+            const meta = chart.getDatasetMeta(index);
+
+            // Toggle visibility - if meta.hidden is null, use the dataset's hidden property
+            const currentlyHidden = meta.hidden === null ? dataset.hidden : meta.hidden;
+            meta.hidden = !currentlyHidden;
+
+            // Update button state to match - hidden data = greyed out button
+            item.classList.toggle('hidden', meta.hidden);
+            chart.update();
+        });
+    });
 }
 
 function renderCombinedChart(data) {
     const ctx = document.getElementById('combinedChart').getContext('2d');
-    
+
     if (charts.combined) charts.combined.destroy();
+    
+    // Calculate max medication value for dynamic Y axis
+    const maxMeds = Math.max(
+        ...data.entries.map(e => 
+            (e.paracetamol || 0) + (e.ibuprofen || 0) + (e.aspirin || 0) + (e.triptan || 0) + (e.codeine || 0)
+        ),
+        1
+    );
+    const medsAxisMax = Math.ceil(maxMeds * 1.2); // Add 20% headroom
     
     charts.combined = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.dates,
             datasets: [
-                // Pain levels
+                // Pain levels (lines)
                 {
                     label: 'Overall Pain',
                     data: data.entries.map(e => e.painLevel),
@@ -712,7 +769,9 @@ function renderCombinedChart(data) {
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     fill: false,
                     tension: 0.3,
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    type: 'line',
+                    order: 1
                 },
                 {
                     label: 'Peak Pain',
@@ -721,16 +780,20 @@ function renderCombinedChart(data) {
                     backgroundColor: 'rgba(231, 76, 60, 0.1)',
                     fill: false,
                     tension: 0.3,
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    type: 'line',
+                    order: 1
                 },
-                // Symptoms
+                // Symptoms (lines)
                 {
                     label: 'Tinnitus',
                     data: data.entries.map(e => e.tinnitus),
                     borderColor: '#f39c12',
                     tension: 0.3,
                     hidden: true,
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    type: 'line',
+                    order: 1
                 },
                 {
                     label: 'Ocular',
@@ -738,7 +801,9 @@ function renderCombinedChart(data) {
                     borderColor: '#9b59b6',
                     tension: 0.3,
                     hidden: true,
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    type: 'line',
+                    order: 1
                 },
                 {
                     label: 'Sleep Issues',
@@ -746,76 +811,83 @@ function renderCombinedChart(data) {
                     borderColor: '#27ae60',
                     tension: 0.3,
                     hidden: true,
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    type: 'line',
+                    order: 1
                 },
-                // Medications
+                // Medications (stacked bars)
                 {
                     label: 'Paracetamol',
                     data: data.entries.map(e => e.paracetamol || 0),
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
                     borderColor: '#3498db',
-                    backgroundColor: 'rgba(52, 152, 219, 0.3)',
-                    tension: 0.3,
+                    borderWidth: 1,
                     hidden: true,
-                    yAxisID: 'y2'
+                    yAxisID: 'y2',
+                    type: 'bar',
+                    stack: 'medications',
+                    order: 2
                 },
                 {
                     label: 'Ibuprofen',
                     data: data.entries.map(e => e.ibuprofen || 0),
+                    backgroundColor: 'rgba(230, 126, 34, 0.8)',
                     borderColor: '#e67e22',
-                    backgroundColor: 'rgba(230, 126, 34, 0.3)',
-                    tension: 0.3,
+                    borderWidth: 1,
                     hidden: true,
-                    yAxisID: 'y2'
+                    yAxisID: 'y2',
+                    type: 'bar',
+                    stack: 'medications',
+                    order: 2
                 },
                 {
                     label: 'Aspirin',
                     data: data.entries.map(e => e.aspirin || 0),
+                    backgroundColor: 'rgba(26, 188, 156, 0.8)',
                     borderColor: '#1abc9c',
-                    backgroundColor: 'rgba(26, 188, 156, 0.3)',
-                    tension: 0.3,
+                    borderWidth: 1,
                     hidden: true,
-                    yAxisID: 'y2'
+                    yAxisID: 'y2',
+                    type: 'bar',
+                    stack: 'medications',
+                    order: 2
                 },
                 {
                     label: 'Sumatriptan',
                     data: data.entries.map(e => e.triptan || 0),
+                    backgroundColor: 'rgba(142, 68, 173, 0.8)',
                     borderColor: '#8e44ad',
-                    backgroundColor: 'rgba(142, 68, 173, 0.3)',
-                    tension: 0.3,
+                    borderWidth: 1,
                     hidden: true,
-                    yAxisID: 'y2'
+                    yAxisID: 'y2',
+                    type: 'bar',
+                    stack: 'medications',
+                    order: 2
                 },
                 {
                     label: 'Ice',
                     data: data.entries.map(e => e.codeine || 0),
+                    backgroundColor: 'rgba(0, 188, 212, 0.8)',
                     borderColor: '#00bcd4',
-                    backgroundColor: 'rgba(0, 188, 212, 0.3)',
-                    tension: 0.3,
+                    borderWidth: 1,
                     hidden: true,
-                    yAxisID: 'y2'
+                    yAxisID: 'y2',
+                    type: 'bar',
+                    stack: 'medications',
+                    order: 2
                 }
             ]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             interaction: {
                 mode: 'index',
                 intersect: false
             },
             plugins: {
                 legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        boxWidth: 8
-                    },
-                    onClick: function(e, legendItem, legend) {
-                        const index = legendItem.datasetIndex;
-                        const ci = legend.chart;
-                        const meta = ci.getDatasetMeta(index);
-                        meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-                        ci.update();
-                    }
+                    display: false
                 }
             },
             scales: {
@@ -835,66 +907,356 @@ function renderCombinedChart(data) {
                     display: true,
                     position: 'right',
                     min: 0,
-                    max: 6,
+                    max: medsAxisMax,
                     title: {
                         display: true,
-                        text: 'Medication Doses'
+                        text: 'Medication Doses (stacked)'
                     },
                     grid: {
                         drawOnChartArea: false
-                    }
+                    },
+                    stacked: true
+                },
+                x: {
+                    stacked: true
                 }
             }
         }
     });
+
+    // Render custom legend
+    renderChartLegend(charts.combined);
 }
 
 function renderStats(data) {
     const statsPanel = document.getElementById('statsPanel');
-    
-    if (data.entries.length === 0) {
+
+    if (data.calendarDays === 0) {
         statsPanel.innerHTML = '<div class="no-entries">No data for this period</div>';
         return;
     }
-    
-    const avgPain = (data.entries.reduce((sum, e) => sum + e.painLevel, 0) / data.entries.length).toFixed(1);
-    const maxPain = Math.max(...data.entries.map(e => e.peakPain));
+
+    // Use calendar days for percentage calculations (days with no records count as 0)
+    const totalDays = data.calendarDays;
+
+    // Calculate average pain across all calendar days (missing days = 0)
+    const totalPain = data.entries.reduce((sum, e) => sum + e.painLevel, 0);
+    const avgPain = (totalPain / totalDays).toFixed(1);
+
+    const maxPain = data.entries.length > 0 ? Math.max(...data.entries.map(e => e.peakPain)) : 0;
     const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
     const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
-    
+
     // Count distinct days with painkillers (Paracetamol, Ibuprofen, Aspirin, Sumatriptan - not Ice or Other)
-    const daysWithPainkillers = data.entries.filter(e => 
-        (e.paracetamol || 0) > 0 || 
-        (e.ibuprofen || 0) > 0 || 
-        (e.aspirin || 0) > 0 || 
+    const daysWithPainkillers = data.entries.filter(e =>
+        (e.paracetamol || 0) > 0 ||
+        (e.ibuprofen || 0) > 0 ||
+        (e.aspirin || 0) > 0 ||
         (e.triptan || 0) > 0
     ).length;
-    
+
+    // Count distinct days with pain relief (Painkillers + Ice)
+    const daysWithPainRelief = data.entries.filter(e =>
+        (e.paracetamol || 0) > 0 ||
+        (e.ibuprofen || 0) > 0 ||
+        (e.aspirin || 0) > 0 ||
+        (e.triptan || 0) > 0 ||
+        (e.codeine || 0) > 0
+    ).length;
+
+    // Calculate averages for all metrics (over calendar days, treating missing as 0)
+    const avgPeakPain = (data.entries.reduce((sum, e) => sum + (e.peakPain || 0), 0) / totalDays).toFixed(1);
+    const avgTinnitus = (data.entries.reduce((sum, e) => sum + (e.tinnitus || 0), 0) / totalDays).toFixed(1);
+    const avgOcular = (data.entries.reduce((sum, e) => sum + (e.ocular || 0), 0) / totalDays).toFixed(1);
+    const avgSleep = (data.entries.reduce((sum, e) => sum + (e.sleepIssues || 0), 0) / totalDays).toFixed(1);
+
     statsPanel.innerHTML = `
         <div class="stat-item">
-            <span class="stat-label">Total Entries</span>
-            <span class="stat-value">${data.entries.length}</span>
+            <span class="stat-label">Calendar Days</span>
+            <span class="stat-value">${totalDays}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Days Logged</span>
+            <span class="stat-value">${data.entries.length} (${((data.entries.length/totalDays)*100).toFixed(0)}%)</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Days with Headache</span>
-            <span class="stat-value">${daysWithPain} (${((daysWithPain/data.entries.length)*100).toFixed(0)}%)</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Average Pain Level</span>
-            <span class="stat-value">${avgPain}/4</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Highest Pain Level</span>
-            <span class="stat-value">${maxPain}/4</span>
+            <span class="stat-value">${daysWithPain} (${((daysWithPain/totalDays)*100).toFixed(0)}%)</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Total Medication Doses</span>
             <span class="stat-value">${totalMeds}</span>
         </div>
         <div class="stat-item">
-            <span class="stat-label">Distinct Days of Painkillers</span>
-            <span class="stat-value">${daysWithPainkillers} (${((daysWithPainkillers/data.entries.length)*100).toFixed(0)}%)</span>
+            <span class="stat-label">Days of Painkillers</span>
+            <span class="stat-value">${daysWithPainkillers} (${((daysWithPainkillers/totalDays)*100).toFixed(0)}%)</span>
         </div>
+        <div class="stat-item">
+            <span class="stat-label">Days of Pain Relief</span>
+            <span class="stat-value">${daysWithPainRelief} (${((daysWithPainRelief/totalDays)*100).toFixed(0)}%)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Pain Level</span>
+            <span class="stat-value">${avgPain}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Peak Pain</span>
+            <span class="stat-value">${avgPeakPain}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Highest Pain Level</span>
+            <span class="stat-value">${maxPain}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Tinnitus</span>
+            <span class="stat-value">${avgTinnitus}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Ocular</span>
+            <span class="stat-value">${avgOcular}/4</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Average Sleep Issues</span>
+            <span class="stat-value">${avgSleep}/4</span>
+        </div>
+    `;
+}
+
+function getStatsForPeriod(startDaysAgo, endDaysAgo) {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() - startDaysAgo);
+    endDate.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - endDaysAgo);
+    startDate.setHours(23, 59, 59, 999);
+
+    const periodEntries = Object.entries(entries)
+        .filter(([date]) => {
+            const d = new Date(date);
+            return d >= endDate && d <= startDate;
+        })
+        .map(([, entry]) => entry);
+
+    const calendarDays = startDaysAgo - endDaysAgo;
+
+    if (calendarDays === 0) return null;
+
+    const daysLogged = periodEntries.length;
+    const daysWithPain = periodEntries.filter(e => e.painLevel > 0).length;
+    const totalMeds = periodEntries.reduce((sum, e) => sum + getTotalMeds(e), 0);
+
+    const daysWithPainkillers = periodEntries.filter(e =>
+        (e.paracetamol || 0) > 0 ||
+        (e.ibuprofen || 0) > 0 ||
+        (e.aspirin || 0) > 0 ||
+        (e.triptan || 0) > 0
+    ).length;
+
+    const daysWithPainRelief = periodEntries.filter(e =>
+        (e.paracetamol || 0) > 0 ||
+        (e.ibuprofen || 0) > 0 ||
+        (e.aspirin || 0) > 0 ||
+        (e.triptan || 0) > 0 ||
+        (e.codeine || 0) > 0
+    ).length;
+
+    const avgPain = periodEntries.reduce((sum, e) => sum + (e.painLevel || 0), 0) / calendarDays;
+    const avgPeakPain = periodEntries.reduce((sum, e) => sum + (e.peakPain || 0), 0) / calendarDays;
+    const maxPain = periodEntries.length > 0 ? Math.max(...periodEntries.map(e => e.peakPain || 0)) : 0;
+    const avgTinnitus = periodEntries.reduce((sum, e) => sum + (e.tinnitus || 0), 0) / calendarDays;
+    const avgOcular = periodEntries.reduce((sum, e) => sum + (e.ocular || 0), 0) / calendarDays;
+    const avgSleep = periodEntries.reduce((sum, e) => sum + (e.sleepIssues || 0), 0) / calendarDays;
+
+    return {
+        calendarDays,
+        daysLogged,
+        daysLoggedPct: (daysLogged / calendarDays) * 100,
+        daysWithPain,
+        daysWithPainPct: (daysWithPain / calendarDays) * 100,
+        totalMeds,
+        daysWithPainkillers,
+        daysWithPainkillersPct: (daysWithPainkillers / calendarDays) * 100,
+        daysWithPainRelief,
+        daysWithPainReliefPct: (daysWithPainRelief / calendarDays) * 100,
+        avgPain,
+        avgPeakPain,
+        maxPain,
+        avgTinnitus,
+        avgOcular,
+        avgSleep
+    };
+}
+
+function formatTrendChange(current, previous, isPercentage = false, lowerIsBetter = true) {
+    if (previous === 0 && current === 0) {
+        return '<span class="trend-change same"><span class="trend-arrow">-</span></span>';
+    }
+
+    let pctChange;
+    if (previous === 0) {
+        pctChange = current > 0 ? 100 : 0;
+    } else {
+        pctChange = ((current - previous) / previous) * 100;
+    }
+
+    const roundedPct = Math.round(pctChange);
+    const absRounded = Math.abs(roundedPct);
+
+    if (roundedPct === 0) {
+        return '<span class="trend-change same"><span class="trend-arrow">-</span></span>';
+    }
+
+    const isUp = roundedPct > 0;
+    const isBetter = lowerIsBetter ? !isUp : isUp;
+    const cssClass = isBetter ? 'down' : 'up';
+    const arrow = isUp ? '▲' : '▼';
+    const sign = isUp ? '+' : '';
+
+    return `<span class="trend-change ${cssClass}"><span class="trend-arrow">${arrow}</span>${sign}${roundedPct}%</span>`;
+}
+
+function renderTrends() {
+    const trendsPanel = document.getElementById('trendsPanel');
+
+    const period1 = getStatsForPeriod(30, 0);   // 0-30 days ago
+    const period2 = getStatsForPeriod(60, 30);  // 31-60 days ago
+    const period3 = getStatsForPeriod(90, 60);  // 61-90 days ago
+
+    if (!period1 || !period2 || !period3) {
+        trendsPanel.innerHTML = '<div class="no-entries">Not enough data for trend analysis (requires 90 days of history)</div>';
+        return;
+    }
+
+    const rows = [
+        {
+            label: 'Days Logged',
+            p1: `${period1.daysLogged} (${period1.daysLoggedPct.toFixed(0)}%)`,
+            p2: `${period2.daysLogged} (${period2.daysLoggedPct.toFixed(0)}%)`,
+            p3: `${period3.daysLogged} (${period3.daysLoggedPct.toFixed(0)}%)`,
+            v1: period1.daysLoggedPct, v2: period2.daysLoggedPct, v3: period3.daysLoggedPct,
+            lowerIsBetter: false
+        },
+        {
+            label: 'Days with Headache',
+            p1: `${period1.daysWithPain} (${period1.daysWithPainPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithPain} (${period2.daysWithPainPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithPain} (${period3.daysWithPainPct.toFixed(0)}%)`,
+            v1: period1.daysWithPainPct, v2: period2.daysWithPainPct, v3: period3.daysWithPainPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Total Medication Doses',
+            p1: `${period1.totalMeds}`,
+            p2: `${period2.totalMeds}`,
+            p3: `${period3.totalMeds}`,
+            v1: period1.totalMeds, v2: period2.totalMeds, v3: period3.totalMeds,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Days of Painkillers',
+            p1: `${period1.daysWithPainkillers} (${period1.daysWithPainkillersPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithPainkillers} (${period2.daysWithPainkillersPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithPainkillers} (${period3.daysWithPainkillersPct.toFixed(0)}%)`,
+            v1: period1.daysWithPainkillersPct, v2: period2.daysWithPainkillersPct, v3: period3.daysWithPainkillersPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Days of Pain Relief',
+            p1: `${period1.daysWithPainRelief} (${period1.daysWithPainReliefPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithPainRelief} (${period2.daysWithPainReliefPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithPainRelief} (${period3.daysWithPainReliefPct.toFixed(0)}%)`,
+            v1: period1.daysWithPainReliefPct, v2: period2.daysWithPainReliefPct, v3: period3.daysWithPainReliefPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Average Pain Level',
+            p1: `${period1.avgPain.toFixed(1)}/4`,
+            p2: `${period2.avgPain.toFixed(1)}/4`,
+            p3: `${period3.avgPain.toFixed(1)}/4`,
+            v1: period1.avgPain, v2: period2.avgPain, v3: period3.avgPain,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Average Peak Pain',
+            p1: `${period1.avgPeakPain.toFixed(1)}/4`,
+            p2: `${period2.avgPeakPain.toFixed(1)}/4`,
+            p3: `${period3.avgPeakPain.toFixed(1)}/4`,
+            v1: period1.avgPeakPain, v2: period2.avgPeakPain, v3: period3.avgPeakPain,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Highest Pain Level',
+            p1: `${period1.maxPain}/4`,
+            p2: `${period2.maxPain}/4`,
+            p3: `${period3.maxPain}/4`,
+            v1: period1.maxPain, v2: period2.maxPain, v3: period3.maxPain,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Average Tinnitus',
+            p1: `${period1.avgTinnitus.toFixed(1)}/4`,
+            p2: `${period2.avgTinnitus.toFixed(1)}/4`,
+            p3: `${period3.avgTinnitus.toFixed(1)}/4`,
+            v1: period1.avgTinnitus, v2: period2.avgTinnitus, v3: period3.avgTinnitus,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Average Ocular',
+            p1: `${period1.avgOcular.toFixed(1)}/4`,
+            p2: `${period2.avgOcular.toFixed(1)}/4`,
+            p3: `${period3.avgOcular.toFixed(1)}/4`,
+            v1: period1.avgOcular, v2: period2.avgOcular, v3: period3.avgOcular,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Average Sleep Issues',
+            p1: `${period1.avgSleep.toFixed(1)}/4`,
+            p2: `${period2.avgSleep.toFixed(1)}/4`,
+            p3: `${period3.avgSleep.toFixed(1)}/4`,
+            v1: period1.avgSleep, v2: period2.avgSleep, v3: period3.avgSleep,
+            lowerIsBetter: true
+        }
+    ];
+
+    trendsPanel.innerHTML = `
+        <table class="trends-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>0-30 days</th>
+                    <th>31-60 days</th>
+                    <th>61-90 days</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(row => `
+                    <tr>
+                        <td>${row.label}</td>
+                        <td>
+                            <div class="trend-cell">
+                                <span class="trend-value">${row.p1}</span>
+                                ${formatTrendChange(row.v1, row.v2, false, row.lowerIsBetter)}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trend-cell">
+                                <span class="trend-value">${row.p2}</span>
+                                ${formatTrendChange(row.v2, row.v3, false, row.lowerIsBetter)}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trend-cell">
+                                <span class="trend-value">${row.p3}</span>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
     `;
 }
 
@@ -928,9 +1290,51 @@ function exportCSV() {
 }
 
 function exportReport() {
-    const fromDate = document.getElementById('exportFrom').value;
-    const toDate = document.getElementById('exportTo').value;
+    // Create date range popup
+    const popup = document.createElement('div');
+    popup.className = 'modal-overlay';
+    popup.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h3 style="margin-bottom: 15px;">📅 Select Report Date Range</h3>
+            <div style="display: grid; gap: 15px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">From Date:</label>
+                    <input type="date" id="reportFromDate" class="export-input" style="width: 100%;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">To Date:</label>
+                    <input type="date" id="reportToDate" class="export-input" style="width: 100%;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button id="cancelReportBtn" class="btn" style="flex: 1; background: #6c757d;">Cancel</button>
+                    <button id="generateReportBtn" class="btn btn-primary" style="flex: 1;">Generate Report</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
     
+    // Set default dates (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    document.getElementById('reportFromDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('reportToDate').value = today.toISOString().split('T')[0];
+    
+    // Handle cancel
+    document.getElementById('cancelReportBtn').onclick = () => popup.remove();
+    popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
+    
+    // Handle generate
+    document.getElementById('generateReportBtn').onclick = () => {
+        const fromDate = document.getElementById('reportFromDate').value;
+        const toDate = document.getElementById('reportToDate').value;
+        popup.remove();
+        generateReportWithDates(fromDate, toDate);
+    };
+}
+
+function generateReportWithDates(fromDate, toDate) {
     let filteredEntries = Object.entries(entries)
         .filter(([date]) => date >= fromDate && date <= toDate)
         .sort((a, b) => new Date(a[0]) - new Date(b[0]));
@@ -946,23 +1350,55 @@ function exportReport() {
     const maxPain = Math.max(...data.entries.map(e => e.peakPain));
     const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
     const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
+    const daysWithPainkillers = data.entries.filter(e => 
+        (e.paracetamol || 0) + (e.ibuprofen || 0) + (e.aspirin || 0) + (e.triptan || 0) > 0
+    ).length;
+    
+    // Prepare chart data
+    const chartLabels = JSON.stringify(data.dates);
+    const painData = JSON.stringify(data.entries.map(e => e.painLevel));
+    const peakData = JSON.stringify(data.entries.map(e => e.peakPain));
+    const tinnitusData = JSON.stringify(data.entries.map(e => e.tinnitus));
+    const ocularData = JSON.stringify(data.entries.map(e => e.ocular));
+    const sleepData = JSON.stringify(data.entries.map(e => e.sleepIssues));
+    const paracetamolData = JSON.stringify(data.entries.map(e => e.paracetamol || 0));
+    const ibuprofenData = JSON.stringify(data.entries.map(e => e.ibuprofen || 0));
+    const aspirinData = JSON.stringify(data.entries.map(e => e.aspirin || 0));
+    const triptanData = JSON.stringify(data.entries.map(e => e.triptan || 0));
+    const iceData = JSON.stringify(data.entries.map(e => e.codeine || 0));
+    
+    // Calculate max stacked meds for dynamic axis
+    const maxStackedMeds = Math.max(
+        ...data.entries.map(e => 
+            (e.paracetamol || 0) + (e.ibuprofen || 0) + (e.aspirin || 0) + (e.triptan || 0) + (e.codeine || 0)
+        ),
+        1
+    );
+    const medsAxisMax = Math.ceil(maxStackedMeds * 1.2);
     
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
     <title>Headache Report ${fromDate} to ${toDate}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
         h1 { color: #667eea; }
+        h2 { color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-top: 30px; }
         .summary { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }
         .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
         .stat { text-align: center; }
         .stat-value { font-size: 2rem; color: #667eea; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background: #667eea; color: white; }
         tr:nth-child(even) { background: #f8f9fa; }
+        .notes-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chart-container { background: white; padding: 20px; border-radius: 10px; margin: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        @media print {
+            .chart-container { break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
@@ -971,7 +1407,7 @@ function exportReport() {
     <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
     
     <div class="summary">
-        <h2>Summary Statistics</h2>
+        <h2 style="margin-top: 0; border: none;">Summary Statistics</h2>
         <div class="summary-grid">
             <div class="stat">
                 <div class="stat-value">${data.entries.length}</div>
@@ -993,7 +1429,21 @@ function exportReport() {
                 <div class="stat-value">${totalMeds}</div>
                 <div>Total Medication Doses</div>
             </div>
+            <div class="stat">
+                <div class="stat-value">${daysWithPainkillers}</div>
+                <div>Days with Painkillers</div>
+            </div>
         </div>
+    </div>
+    
+    <h2>Pain & Symptoms Trend</h2>
+    <div class="chart-container">
+        <canvas id="painSymptomsChart"></canvas>
+    </div>
+    
+    <h2>Medications (Stacked)</h2>
+    <div class="chart-container">
+        <canvas id="medicationsChart"></canvas>
     </div>
     
     <h2>Daily Log</h2>
@@ -1004,6 +1454,7 @@ function exportReport() {
             <th>Peak</th>
             <th>Medications</th>
             <th>Triggers</th>
+            <th>Notes</th>
         </tr>
         ${filteredEntries.map(([date, e]) => `
         <tr>
@@ -1012,9 +1463,120 @@ function exportReport() {
             <td>${e.peakPain}/4</td>
             <td>${getMedsSummary(e)}</td>
             <td>${e.triggers || '-'}</td>
+            <td class="notes-cell" title="${(e.notes || '').replace(/"/g, '&quot;')}">${e.notes || '-'}</td>
         </tr>
         `).join('')}
     </table>
+    
+    <script>
+        // Pain & Symptoms Chart
+        new Chart(document.getElementById('painSymptomsChart'), {
+            type: 'line',
+            data: {
+                labels: ${chartLabels},
+                datasets: [
+                    {
+                        label: 'Overall Pain',
+                        data: ${painData},
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Peak Pain',
+                        data: ${peakData},
+                        borderColor: '#e74c3c',
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Tinnitus',
+                        data: ${tinnitusData},
+                        borderColor: '#f39c12',
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Ocular',
+                        data: ${ocularData},
+                        borderColor: '#9b59b6',
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Sleep Issues',
+                        data: ${sleepData},
+                        borderColor: '#27ae60',
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { min: 0, max: 4, title: { display: true, text: 'Severity (0-4)' } }
+                }
+            }
+        });
+        
+        // Medications Chart (Stacked Bar)
+        new Chart(document.getElementById('medicationsChart'), {
+            type: 'bar',
+            data: {
+                labels: ${chartLabels},
+                datasets: [
+                    {
+                        label: 'Paracetamol',
+                        data: ${paracetamolData},
+                        backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                        borderColor: '#3498db',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Ibuprofen',
+                        data: ${ibuprofenData},
+                        backgroundColor: 'rgba(230, 126, 34, 0.8)',
+                        borderColor: '#e67e22',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Aspirin',
+                        data: ${aspirinData},
+                        backgroundColor: 'rgba(26, 188, 156, 0.8)',
+                        borderColor: '#1abc9c',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Sumatriptan',
+                        data: ${triptanData},
+                        backgroundColor: 'rgba(142, 68, 173, 0.8)',
+                        borderColor: '#8e44ad',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Ice',
+                        data: ${iceData},
+                        backgroundColor: 'rgba(0, 188, 212, 0.8)',
+                        borderColor: '#00bcd4',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    x: { stacked: true },
+                    y: { 
+                        stacked: true, 
+                        min: 0, 
+                        max: ${medsAxisMax},
+                        title: { display: true, text: 'Doses (stacked)' } 
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>`;
     

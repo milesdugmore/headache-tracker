@@ -65,6 +65,30 @@ header h1 {
     opacity: 0.9;
 }
 
+.auth-status-footer {
+    text-align: center;
+    padding: 15px;
+    margin-top: 20px;
+    color: white;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.auth-status-footer button {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: background 0.2s;
+}
+
+.auth-status-footer button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
 .auth-status button {
     background: rgba(255,255,255,0.2);
     border: 1px solid rgba(255,255,255,0.4);
@@ -250,6 +274,8 @@ header h1 {
 .tab-content {
     display: none;
     padding: 25px;
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 .tab-content.active {
@@ -695,14 +721,18 @@ fieldset > label textarea:focus {
 
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .chart-container {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .chart-container.full-width {
@@ -714,9 +744,140 @@ fieldset > label textarea:focus {
     color: #333;
 }
 
+/* Chart Legend - Separate Section */
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.legend-item:hover {
+    background: #f0f0f0;
+}
+
+.legend-item.hidden {
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    white-space: nowrap;
+}
+
+/* Trends Table */
+.trends-container {
+    margin-top: 20px;
+}
+
+.trends-panel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.trends-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.trends-table th,
+.trends-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.trends-table th {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.trends-table th:first-child {
+    border-radius: 8px 0 0 0;
+}
+
+.trends-table th:last-child {
+    border-radius: 0 8px 0 0;
+}
+
+.trends-table tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.trends-table tr:hover {
+    background: #e8f4fd;
+}
+
+.trends-table td:first-child {
+    color: #666;
+    font-weight: 500;
+}
+
+.trend-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.trend-value {
+    font-weight: 600;
+    color: #333;
+}
+
+.trend-change {
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.trend-change.up {
+    color: #e74c3c;
+}
+
+.trend-change.down {
+    color: #27ae60;
+}
+
+.trend-change.same {
+    color: #999;
+}
+
+.trend-arrow {
+    font-size: 0.7rem;
+}
+
 .stats-panel {
     display: grid;
     gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .stat-item {
@@ -725,6 +886,7 @@ fieldset > label textarea:focus {
     padding: 10px;
     background: white;
     border-radius: 8px;
+    min-width: 0;
 }
 
 .stat-label {
@@ -992,4 +1154,44 @@ fieldset > label textarea:focus {
 .history-controls button,
 .chart-controls button {
     background: var(--primary);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    animation: modalFadeIn 0.2s ease;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.modal-content h3 {
+    color: var(--primary);
+    margin-bottom: 15px;
 }
