@@ -219,6 +219,14 @@
                     <h3>Trends Over Time</h3>
                     <div id="trendsPanel" class="trends-panel"></div>
                 </div>
+                <div class="chart-container full-width ai-analysis-container">
+                    <div class="ai-analysis-header">
+                        <h3>Analysis &amp; Correlations</h3>
+                        <button id="generateAnalysisBtn" class="generate-analysis-btn">Generate AI Analysis</button>
+                        <span class="ai-analysis-note">Analyses last 90 days &bull; Requires Anthropic API key in Settings</span>
+                    </div>
+                    <div id="aiAnalysisPanel" class="ai-analysis-panel placeholder">No analysis generated yet. Click "Generate AI Analysis" to get an AI-written summary of your trends and correlations.</div>
+                </div>
             </section>
 
             <!-- Settings Tab -->
@@ -262,6 +270,15 @@
                             <button class="theme-btn active" data-theme="default">Default</button>
                             <button class="theme-btn" data-theme="graphite">Graphite</button>
                             <button class="theme-btn" data-theme="aqua">Aqua</button>
+                        </div>
+                    </div>
+
+                    <div class="ai-settings-section">
+                        <h3>AI Analysis</h3>
+                        <p>Enter your Anthropic API key to enable AI-powered analysis on the Analysis tab. Your key is stored securely in your profile and never shared.</p>
+                        <div class="api-key-row">
+                            <input type="password" id="anthropicApiKey" placeholder="sk-ant-api03-...">
+                            <button id="saveApiKeyBtn" class="save-api-key-btn">Save Key</button>
                         </div>
                     </div>
                 </div>

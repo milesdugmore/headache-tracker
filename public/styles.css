@@ -1195,3 +1195,117 @@ fieldset > label textarea:focus {
     color: var(--primary);
     margin-bottom: 15px;
 }
+
+/* AI Analysis Section */
+.ai-analysis-container {
+    margin-top: 20px;
+}
+
+.ai-analysis-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.ai-analysis-header h3 {
+    margin-bottom: 0;
+}
+
+.generate-analysis-btn {
+    padding: 8px 18px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+}
+
+.generate-analysis-btn:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.generate-analysis-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ai-analysis-note {
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.ai-analysis-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    line-height: 1.7;
+    color: #333;
+    min-height: 60px;
+}
+
+.ai-analysis-panel.placeholder {
+    color: #888;
+    text-align: center;
+    padding: 30px 20px;
+    font-style: italic;
+}
+
+.ai-analysis-panel p {
+    margin: 0 0 10px 0;
+}
+
+.ai-analysis-panel ul {
+    padding-left: 20px;
+    margin: 0 0 10px 0;
+}
+
+.ai-analysis-panel li {
+    margin-bottom: 5px;
+}
+
+/* AI Settings Section */
+.ai-settings-section {
+    padding-top: 25px;
+    border-top: 2px solid #e0e0e0;
+    margin-top: 25px;
+}
+
+.ai-settings-section h3 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.ai-settings-section > p {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+
+.api-key-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.api-key-row input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-family: monospace;
+}
+
+.save-api-key-btn {
+    padding: 10px 20px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}

@@ -74,11 +74,13 @@ function setupAuthStateListener() {
             useLocalStorage = false;
             await loadEntriesFromFirestore();
             await loadThemePreference();
+            await populateApiKeyField();
             showMainApp();
             updateAuthStatus();
         } else if (useLocalStorage) {
             loadEntriesFromLocalStorage();
             loadThemePreference();
+            populateApiKeyField();
             showMainApp();
             updateAuthStatus();
         }
@@ -177,6 +179,14 @@ function setupEventListeners() {
             setTheme(theme);
         });
     });
+
+    // AI Analysis
+    document.getElementById('saveApiKeyBtn').addEventListener('click', async () => {
+        const key = document.getElementById('anthropicApiKey').value.trim();
+        await saveApiKey(key);
+        showToast(key ? 'API key saved' : 'API key cleared', 'success');
+    });
+    document.getElementById('generateAnalysisBtn').addEventListener('click', generateAIAnalysis);
 }
 
 // Auth Handlers
@@ -230,6 +240,7 @@ function handleSkipAuth() {
     useLocalStorage = true;
     currentUser = null;
     loadEntriesFromLocalStorage();
+    populateApiKeyField();
     showMainApp();
     updateAuthStatus();
 }
@@ -1692,7 +1703,7 @@ async function saveThemePreference(theme) {
 
 async function loadThemePreference() {
     let theme = 'default';
-    
+
     if (currentUser) {
         try {
             const userRef = doc(db, 'users', currentUser.uid, 'settings', 'preferences');
@@ -1706,6 +1717,228 @@ async function loadThemePreference() {
     } else {
         theme = localStorage.getItem('headacheTracker_theme') || 'default';
     }
-    
+
     setTheme(theme);
+}
+
+// AI Analysis - API Key Management
+async function saveApiKey(key) {
+    if (currentUser) {
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'preferences');
+            await setDoc(userRef, { anthropicApiKey: key, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (error) {
+            console.error('Error saving API key:', error);
+        }
+    } else {
+        localStorage.setItem('headacheTracker_anthropicApiKey', key);
+    }
+}
+
+async function loadApiKey() {
+    if (currentUser) {
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'preferences');
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists() && docSnap.data().anthropicApiKey) {
+                return docSnap.data().anthropicApiKey;
+            }
+        } catch (error) {
+            console.error('Error loading API key:', error);
+        }
+        return '';
+    } else {
+        return localStorage.getItem('headacheTracker_anthropicApiKey') || '';
+    }
+}
+
+async function populateApiKeyField() {
+    const key = await loadApiKey();
+    const input = document.getElementById('anthropicApiKey');
+    if (input && key) {
+        input.value = key;
+    }
+}
+
+// AI Analysis Generation
+let cachedAnalysis = null;
+
+async function generateAIAnalysis() {
+    const apiKey = await loadApiKey();
+    if (!apiKey) {
+        showToast('Please add your Anthropic API key in Settings first', 'error');
+        return;
+    }
+
+    const panel = document.getElementById('aiAnalysisPanel');
+    const btn = document.getElementById('generateAnalysisBtn');
+
+    panel.className = 'ai-analysis-panel';
+    panel.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+
+    try {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 90);
+        const entries90 = Object.entries(entries)
+            .filter(([date]) => new Date(date) >= cutoff)
+            .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        if (entries90.length < 5) {
+            panel.className = 'ai-analysis-panel placeholder';
+            panel.textContent = 'Not enough data for analysis. Please log at least 5 entries in the past 90 days.';
+            return;
+        }
+
+        const prompt = buildAnalysisPrompt(entries90);
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-calls': 'true'
+            },
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 1024,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error?.message || `API error ${response.status}`);
+        }
+
+        const data = await response.json();
+        const text = data.content[0].text;
+
+        cachedAnalysis = text;
+        panel.className = 'ai-analysis-panel';
+        panel.innerHTML = simpleMarkdownToHtml(text);
+
+    } catch (error) {
+        panel.className = 'ai-analysis-panel placeholder';
+        panel.textContent = `Error: ${error.message}`;
+        showToast('Analysis failed: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate AI Analysis';
+    }
+}
+
+function buildAnalysisPrompt(entries90) {
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = entries90.length > 0 ? entries90[0][0] : today;
+    const totalDays = 90;
+    const daysLogged = entries90.length;
+    const daysWithPain = entries90.filter(([, e]) => (e.painLevel || 0) > 0).length;
+    const avgPain = (entries90.reduce((s, [, e]) => s + (e.painLevel || 0), 0) / totalDays).toFixed(2);
+    const avgPeak = (entries90.reduce((s, [, e]) => s + (e.peakPain || 0), 0) / totalDays).toFixed(2);
+    const avgTinnitus = (entries90.reduce((s, [, e]) => s + (e.tinnitus || 0), 0) / totalDays).toFixed(2);
+    const avgOcular = (entries90.reduce((s, [, e]) => s + (e.ocular || 0), 0) / totalDays).toFixed(2);
+    const avgSleep = (entries90.reduce((s, [, e]) => s + (e.sleepIssues || 0), 0) / totalDays).toFixed(2);
+    const totalMeds = entries90.reduce((s, [, e]) => s + getTotalMeds(e), 0);
+    const daysWithMeds = entries90.filter(([, e]) => getTotalMeds(e) > 0).length;
+    const daysWithTriptan = entries90.filter(([, e]) => (e.triptan || 0) > 0).length;
+
+    const p1 = getStatsForPeriod(30, 0);
+    const p2 = getStatsForPeriod(60, 30);
+    const p3 = getStatsForPeriod(90, 60);
+
+    const pct = (v, d) => d > 0 ? Math.round((v / d) * 100) : 0;
+
+    const dailyLines = entries90.map(([date, e]) => {
+        let line = `${date}: P${e.painLevel || 0}/Pk${e.peakPain || 0}`;
+        if ((e.tinnitus || 0) > 0) line += `/T${e.tinnitus}`;
+        if ((e.ocular || 0) > 0) line += `/O${e.ocular}`;
+        if ((e.sleepIssues || 0) > 0) line += `/S${e.sleepIssues}`;
+        const meds = [];
+        if ((e.paracetamol || 0) > 0) meds.push(`para:${e.paracetamol}`);
+        if ((e.ibuprofen || 0) > 0) meds.push(`ibu:${e.ibuprofen}`);
+        if ((e.aspirin || 0) > 0) meds.push(`asp:${e.aspirin}`);
+        if ((e.triptan || 0) > 0) meds.push(`trip:${e.triptan}`);
+        if ((e.codeine || 0) > 0) meds.push(`ice:${e.codeine}`);
+        if (e.otherMeds) meds.push(`other:${e.otherMeds}`);
+        if (meds.length) line += ` | ${meds.join(' ')}`;
+        if (e.triggers) line += ` | triggers: ${e.triggers}`;
+        if (e.notes) line += ` | notes: ${e.notes}`;
+        return line;
+    }).join('\n');
+
+    return `You are analyzing 90 days of headache tracking data for a personal health journal.
+
+SCALE: 0=none, 1=mild, 2=moderate, 3=severe, 4=very severe
+
+90-DAY SUMMARY (${startDate} to ${today}):
+- Days logged: ${daysLogged}/90 (${pct(daysLogged, 90)}%)
+- Days with headache (pain > 0): ${daysWithPain} (${pct(daysWithPain, totalDays)}%)
+- Average daily pain: ${avgPain}/4, Average peak pain: ${avgPeak}/4
+- Average tinnitus: ${avgTinnitus}/4, Ocular issues: ${avgOcular}/4, Sleep issues: ${avgSleep}/4
+- Total medication doses: ${totalMeds}
+- Days using any medication: ${daysWithMeds} (${pct(daysWithMeds, totalDays)}%)
+- Days using sumatriptan (triptan): ${daysWithTriptan}
+
+PERIOD BREAKDOWN (30-day segments):
+Most recent (0-30 days): headache days ${p1?.daysWithPain || 0}/${p1?.calendarDays || 30}, avg pain ${(p1?.avgPain || 0).toFixed(1)}/4, avg peak ${(p1?.avgPeakPain || 0).toFixed(1)}/4, med days ${p1?.daysWithPainkillers || 0}
+31-60 days ago: headache days ${p2?.daysWithPain || 0}/${p2?.calendarDays || 30}, avg pain ${(p2?.avgPain || 0).toFixed(1)}/4, avg peak ${(p2?.avgPeakPain || 0).toFixed(1)}/4, med days ${p2?.daysWithPainkillers || 0}
+61-90 days ago: headache days ${p3?.daysWithPain || 0}/${p3?.calendarDays || 30}, avg pain ${(p3?.avgPain || 0).toFixed(1)}/4, avg peak ${(p3?.avgPeakPain || 0).toFixed(1)}/4, med days ${p3?.daysWithPainkillers || 0}
+
+DAILY LOG (date: Pain/Peak[/Tinnitus/Ocular/Sleep] | medications | triggers | notes):
+${dailyLines}
+
+Please provide a structured analysis with these sections:
+
+**Overview**
+A narrative paragraph summarizing the 90-day trend and trajectory.
+
+**Correlations & Patterns**
+Bullet points identifying key correlations (e.g., trigger patterns, medication use relative to pain, symptom co-occurrence, any clustering, etc.)
+
+**Notes for Medical Consultation**
+Any flags worth raising with a neurologist (medication overuse trends, worsening periods, unusual clusters, etc.)
+
+Be specific with numbers from the data. Avoid generic health advice.`;
+}
+
+function simpleMarkdownToHtml(text) {
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const boldify = (s) => esc(s).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    const lines = text.split('\n');
+    const html = [];
+    let inList = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed === '') {
+            if (inList) { html.push('</ul>'); inList = false; }
+            continue;
+        }
+        // Bold-only lines used as section headers (e.g. **Overview**)
+        if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            html.push(`<p><strong>${esc(trimmed.slice(2, -2))}</strong></p>`);
+            continue;
+        }
+        // Markdown headers (#, ##, ###)
+        if (/^#{1,3} /.test(trimmed)) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            html.push(`<p><strong>${boldify(trimmed.replace(/^#{1,3} /, ''))}</strong></p>`);
+            continue;
+        }
+        // List items
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            if (!inList) { html.push('<ul>'); inList = true; }
+            html.push(`<li>${boldify(trimmed.slice(2))}</li>`);
+            continue;
+        }
+        // Regular paragraph
+        if (inList) { html.push('</ul>'); inList = false; }
+        html.push(`<p>${boldify(trimmed)}</p>`);
+    }
+    if (inList) html.push('</ul>');
+    return html.join('');
 }
