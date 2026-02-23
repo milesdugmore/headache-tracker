@@ -1764,19 +1764,23 @@ async function populateApiKeyField() {
 let cachedAnalysis = null;
 
 async function generateAIAnalysis() {
-    const apiKey = await loadApiKey();
-    if (!apiKey) {
-        showToast('Please add your Anthropic API key in Settings first', 'error');
-        return;
-    }
-
     const panel = document.getElementById('aiAnalysisPanel');
     const btn = document.getElementById('generateAnalysisBtn');
 
+    // Show loading immediately before any async work
     panel.className = 'ai-analysis-panel';
     panel.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     btn.disabled = true;
     btn.textContent = 'Generating...';
+
+    const apiKey = await loadApiKey();
+    if (!apiKey) {
+        panel.className = 'ai-analysis-panel placeholder';
+        panel.textContent = 'No API key found. Please add your Anthropic API key in Settings first.';
+        btn.disabled = false;
+        btn.textContent = 'Generate AI Analysis';
+        return;
+    }
 
     try {
         const cutoff = new Date();
@@ -1788,6 +1792,8 @@ async function generateAIAnalysis() {
         if (entries90.length < 5) {
             panel.className = 'ai-analysis-panel placeholder';
             panel.textContent = 'Not enough data for analysis. Please log at least 5 entries in the past 90 days.';
+            btn.disabled = false;
+            btn.textContent = 'Generate AI Analysis';
             return;
         }
 
