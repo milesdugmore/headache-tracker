@@ -1,0 +1,11 @@
+{
+  "name": "headache-tracker-functions",
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^7.0.5"
+  },
+  "private": true
+}

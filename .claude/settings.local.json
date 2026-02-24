@@ -4,7 +4,9 @@
       "Bash(firebase deploy:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd analysis improvements: mobile-friendly chart legend, trends table, extended stats\n\n- Move chart legend to separate clickable section above graph for mobile\n- Add 60, 120, 180, 365 day options to date range dropdown\n- Fix stats to use calendar days \\(treat missing days as 0\\)\n- Add \"Days of Pain Relief\" stat \\(painkillers + ice\\)\n- Add average stats for all metrics \\(peak pain, tinnitus, ocular, sleep\\)\n- Add \"Trends Over Time\" table comparing 0-30, 31-60, 61-90 day periods\n- Show percentage change with colored arrows between periods\n- Add brain emoji favicon\n- Move auth status to footer\n- Fix overflow issues after screen rotation\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(npm install)",
+      "Bash(npm install:*)"
     ]
   }
 }

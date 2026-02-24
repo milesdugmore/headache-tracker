@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeDatePicker();
     setupEventListeners();
     setupAuthStateListener();
+    showBuildTime();
 });
 
 // Auth State Listener
@@ -686,6 +687,7 @@ function renderCharts() {
     renderCombinedChart(data);
     renderStats(data);
     renderTrends();
+    renderAIReportHistory();
 }
 
 function getChartData(range) {
@@ -1799,19 +1801,10 @@ async function generateAIAnalysis() {
 
         const prompt = buildAnalysisPrompt(entries90);
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const response = await fetch('/api/analyze', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-calls': 'true'
-            },
-            body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 1024,
-                messages: [{ role: 'user', content: prompt }]
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey, prompt })
         });
 
         if (!response.ok) {
@@ -1825,6 +1818,8 @@ async function generateAIAnalysis() {
         cachedAnalysis = text;
         panel.className = 'ai-analysis-panel';
         panel.innerHTML = simpleMarkdownToHtml(text);
+        await saveAIReport(text);
+        renderAIReportHistory();
 
     } catch (error) {
         panel.className = 'ai-analysis-panel placeholder';
@@ -1947,4 +1942,133 @@ function simpleMarkdownToHtml(text) {
     }
     if (inList) html.push('</ul>');
     return html.join('');
+}
+
+// AI Report History - Storage
+async function saveAIReport(text) {
+    const id = Date.now().toString();
+    const generatedAt = new Date().toISOString();
+    if (currentUser) {
+        try {
+            const reportRef = doc(db, 'users', currentUser.uid, 'aiReports', id);
+            await setDoc(reportRef, { generatedAt, text });
+        } catch (error) {
+            console.error('Error saving AI report:', error);
+        }
+    } else {
+        const reports = JSON.parse(localStorage.getItem('headacheTracker_aiReports') || '[]');
+        reports.unshift({ id, generatedAt, text });
+        localStorage.setItem('headacheTracker_aiReports', JSON.stringify(reports));
+    }
+}
+
+async function loadAIReports() {
+    if (currentUser) {
+        try {
+            const reportsRef = collection(db, 'users', currentUser.uid, 'aiReports');
+            const snapshot = await getDocs(reportsRef);
+            const reports = [];
+            snapshot.forEach(d => reports.push({ id: d.id, ...d.data() }));
+            return reports.sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt));
+        } catch (error) {
+            console.error('Error loading AI reports:', error);
+            return [];
+        }
+    } else {
+        return JSON.parse(localStorage.getItem('headacheTracker_aiReports') || '[]');
+    }
+}
+
+async function deleteAIReport(id) {
+    if (currentUser) {
+        await deleteDoc(doc(db, 'users', currentUser.uid, 'aiReports', id));
+    } else {
+        const reports = JSON.parse(localStorage.getItem('headacheTracker_aiReports') || '[]');
+        localStorage.setItem('headacheTracker_aiReports', JSON.stringify(reports.filter(r => r.id !== id)));
+    }
+}
+
+// AI Report History - Rendering
+async function renderAIReportHistory() {
+    const container = document.getElementById('aiReportsHistory');
+    if (!container) return;
+
+    const reports = await loadAIReports();
+
+    // Pre-fill main panel with most recent report if nothing generated this session
+    if (reports.length > 0 && !cachedAnalysis) {
+        const panel = document.getElementById('aiAnalysisPanel');
+        if (panel && panel.classList.contains('placeholder')) {
+            panel.className = 'ai-analysis-panel';
+            panel.innerHTML = simpleMarkdownToHtml(reports[0].text);
+        }
+    }
+
+    if (reports.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="chart-container full-width ai-reports-container">
+            <h3>Previous Reports</h3>
+            <div class="ai-reports-list">
+                ${reports.map(report => `
+                    <div class="ai-report-item" id="report-item-${report.id}">
+                        <div class="ai-report-summary" onclick="toggleReport('${report.id}')">
+                            <span class="ai-report-date">${formatReportDate(report.generatedAt)}</span>
+                            <div class="ai-report-actions">
+                                <button class="ai-report-delete-btn" onclick="confirmDeleteReport(event, '${report.id}')">Delete</button>
+                                <span class="ai-report-chevron" id="chevron-${report.id}">▼</span>
+                            </div>
+                        </div>
+                        <div class="ai-report-body" id="report-body-${report.id}">
+                            ${simpleMarkdownToHtml(report.text)}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function formatReportDate(isoString) {
+    return new Date(isoString).toLocaleString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+window.toggleReport = function(id) {
+    const body = document.getElementById(`report-body-${id}`);
+    const chevron = document.getElementById(`chevron-${id}`);
+    if (!body) return;
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
+};
+
+window.confirmDeleteReport = async function(e, id) {
+    e.stopPropagation();
+    if (!confirm('Delete this report? This cannot be undone.')) return;
+    try {
+        await deleteAIReport(id);
+        showToast('Report deleted', 'success');
+        renderAIReportHistory();
+    } catch (error) {
+        showToast('Failed to delete report', 'error');
+    }
+};
+
+// Build time indicator
+async function showBuildTime() {
+    try {
+        const res = await fetch('app.js', { method: 'HEAD', cache: 'no-store' });
+        const lastModified = res.headers.get('Last-Modified');
+        const el = document.getElementById('buildTime');
+        if (el && lastModified) {
+            const date = new Date(lastModified);
+            el.textContent = `Deployed: ${date.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}`;
+        }
+    } catch (e) { /* silently ignore */ }
 }
