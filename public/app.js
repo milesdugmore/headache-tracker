@@ -7,7 +7,8 @@ import {
     signInWithPopup,
     GoogleAuthProvider,
     signOut,
-    onAuthStateChanged 
+    onAuthStateChanged,
+    sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { 
     getFirestore, 
@@ -94,6 +95,7 @@ function setupEventListeners() {
     signInBtn.addEventListener('click', handleSignIn);
     signUpBtn.addEventListener('click', handleSignUp);
     document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
+    document.getElementById('forgotPasswordBtn').addEventListener('click', handleForgotPassword);
     skipAuthBtn.addEventListener('click', handleSkipAuth);
 
     // Tabs
@@ -232,6 +234,27 @@ async function handleGoogleSignIn() {
     const provider = new GoogleAuthProvider();
     try {
         await signInWithPopup(auth, provider);
+    } catch (error) {
+        showAuthError(getAuthErrorMessage(error.code));
+    }
+}
+
+async function handleForgotPassword() {
+    const email = authEmail.value.trim();
+
+    if (!email) {
+        showAuthError('Please enter your email address first');
+        return;
+    }
+
+    try {
+        await sendPasswordResetEmail(auth, email);
+        authError.style.color = '#28a745';
+        authError.textContent = 'Password reset email sent. Check your inbox.';
+        setTimeout(() => {
+            authError.textContent = '';
+            authError.style.color = '';
+        }, 5000);
     } catch (error) {
         showAuthError(getAuthErrorMessage(error.code));
     }

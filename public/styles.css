@@ -219,6 +219,20 @@ header h1 {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+.forgot-password-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    margin-bottom: 15px;
+}
+
+.forgot-password-btn:hover {
+    color: #667eea;
+}
+
 .skip-btn {
     background: none;
     border: none;
