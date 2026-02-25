@@ -219,6 +219,20 @@ header h1 {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+.reset-password-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    margin-top: -5px;
+}
+
+.reset-password-btn:hover {
+    color: #667eea;
+}
+
 .skip-btn {
     background: none;
     border: none;
@@ -1213,6 +1227,22 @@ fieldset > label textarea:focus {
     margin-bottom: 0;
 }
 
+.ai-analysis-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.analysis-range-select {
+    padding: 8px 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+}
+
 .generate-analysis-btn {
     padding: 8px 18px;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -1347,10 +1377,21 @@ fieldset > label textarea:focus {
     background: #f0f4ff;
 }
 
-.ai-report-date {
+.ai-report-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ai-report-generated {
     font-weight: 500;
     color: #444;
     font-size: 0.9rem;
+}
+
+.ai-report-span {
+    font-size: 0.8rem;
+    color: #888;
 }
 
 .ai-report-actions {

@@ -2,12 +2,13 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { 
     getAuth, 
-    signInWithEmailAndPassword, 
+    signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
+    sendPasswordResetEmail,
     signInWithPopup,
     GoogleAuthProvider,
     signOut,
-    onAuthStateChanged 
+    onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { 
     getFirestore, 
@@ -94,6 +95,7 @@ function setupEventListeners() {
     signInBtn.addEventListener('click', handleSignIn);
     signUpBtn.addEventListener('click', handleSignUp);
     document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
+    document.getElementById('resetPasswordBtn').addEventListener('click', handleResetPassword);
     skipAuthBtn.addEventListener('click', handleSkipAuth);
 
     // Tabs
@@ -202,6 +204,25 @@ async function handleSignIn() {
 
     try {
         await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        showAuthError(getAuthErrorMessage(error.code));
+    }
+}
+
+async function handleResetPassword() {
+    const email = authEmail.value.trim();
+    if (!email) {
+        showAuthError('Please enter your email address first');
+        return;
+    }
+    try {
+        await sendPasswordResetEmail(auth, email);
+        authError.style.color = '#34A853';
+        authError.textContent = 'Password reset email sent! Check your inbox.';
+        setTimeout(() => {
+            authError.textContent = '';
+            authError.style.color = '';
+        }, 5000);
     } catch (error) {
         showAuthError(getAuthErrorMessage(error.code));
     }
@@ -1785,21 +1806,36 @@ async function generateAIAnalysis() {
     }
 
     try {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 90);
-        const entries90 = Object.entries(entries)
-            .filter(([date]) => new Date(date) >= cutoff)
-            .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+        const range = document.getElementById('analysisRange').value;
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
 
-        if (entries90.length < 5) {
+        let totalDays;
+        let filteredEntries = Object.entries(entries).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        if (range === 'all') {
+            const allDates = filteredEntries.map(([d]) => d);
+            const earliest = allDates[0];
+            totalDays = earliest
+                ? Math.ceil((today - new Date(earliest)) / (1000 * 60 * 60 * 24)) + 1
+                : 0;
+        } else {
+            totalDays = parseInt(range);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - totalDays);
+            filteredEntries = filteredEntries.filter(([date]) => new Date(date) >= cutoff);
+        }
+
+        if (filteredEntries.length < 5) {
             panel.className = 'ai-analysis-panel placeholder';
-            panel.textContent = 'Not enough data for analysis. Please log at least 5 entries in the past 90 days.';
+            panel.textContent = `Not enough data for analysis. Please log at least 5 entries in the selected period.`;
             btn.disabled = false;
             btn.textContent = 'Generate AI Analysis';
             return;
         }
 
-        const prompt = buildAnalysisPrompt(entries90);
+        const startDateStr = filteredEntries[0][0];
+        const prompt = buildAnalysisPrompt(filteredEntries, totalDays);
 
         const response = await fetch('/api/analyze', {
             method: 'POST',
@@ -1818,7 +1854,7 @@ async function generateAIAnalysis() {
         cachedAnalysis = text;
         panel.className = 'ai-analysis-panel';
         panel.innerHTML = simpleMarkdownToHtml(text);
-        await saveAIReport(text);
+        await saveAIReport(text, { startDate: startDateStr, endDate: todayStr, totalDays, entryCount: filteredEntries.length });
         renderAIReportHistory();
 
     } catch (error) {
@@ -1831,10 +1867,9 @@ async function generateAIAnalysis() {
     }
 }
 
-function buildAnalysisPrompt(entries90) {
+function buildAnalysisPrompt(entries90, totalDays) {
     const today = new Date().toISOString().split('T')[0];
     const startDate = entries90.length > 0 ? entries90[0][0] : today;
-    const totalDays = 90;
     const daysLogged = entries90.length;
     const daysWithPain = entries90.filter(([, e]) => (e.painLevel || 0) > 0).length;
     const avgPain = (entries90.reduce((s, [, e]) => s + (e.painLevel || 0), 0) / totalDays).toFixed(2);
@@ -1870,12 +1905,12 @@ function buildAnalysisPrompt(entries90) {
         return line;
     }).join('\n');
 
-    return `You are analyzing 90 days of headache tracking data for a personal health journal.
+    return `You are analyzing ${totalDays} days of headache tracking data for a personal health journal.
 
 SCALE: 0=none, 1=mild, 2=moderate, 3=severe, 4=very severe
 
-90-DAY SUMMARY (${startDate} to ${today}):
-- Days logged: ${daysLogged}/90 (${pct(daysLogged, 90)}%)
+SUMMARY (${startDate} to ${today}, ${totalDays} calendar days):
+- Days logged: ${daysLogged}/${totalDays} (${pct(daysLogged, totalDays)}%)
 - Days with headache (pain > 0): ${daysWithPain} (${pct(daysWithPain, totalDays)}%)
 - Average daily pain: ${avgPain}/4, Average peak pain: ${avgPeak}/4
 - Average tinnitus: ${avgTinnitus}/4, Ocular issues: ${avgOcular}/4, Sleep issues: ${avgSleep}/4
@@ -1883,7 +1918,7 @@ SCALE: 0=none, 1=mild, 2=moderate, 3=severe, 4=very severe
 - Days using any medication: ${daysWithMeds} (${pct(daysWithMeds, totalDays)}%)
 - Days using sumatriptan (triptan): ${daysWithTriptan}
 
-PERIOD BREAKDOWN (30-day segments):
+PERIOD BREAKDOWN (30-day segments, most recent 90 days for context):
 Most recent (0-30 days): headache days ${p1?.daysWithPain || 0}/${p1?.calendarDays || 30}, avg pain ${(p1?.avgPain || 0).toFixed(1)}/4, avg peak ${(p1?.avgPeakPain || 0).toFixed(1)}/4, med days ${p1?.daysWithPainkillers || 0}
 31-60 days ago: headache days ${p2?.daysWithPain || 0}/${p2?.calendarDays || 30}, avg pain ${(p2?.avgPain || 0).toFixed(1)}/4, avg peak ${(p2?.avgPeakPain || 0).toFixed(1)}/4, med days ${p2?.daysWithPainkillers || 0}
 61-90 days ago: headache days ${p3?.daysWithPain || 0}/${p3?.calendarDays || 30}, avg pain ${(p3?.avgPain || 0).toFixed(1)}/4, avg peak ${(p3?.avgPeakPain || 0).toFixed(1)}/4, med days ${p3?.daysWithPainkillers || 0}
@@ -1894,7 +1929,7 @@ ${dailyLines}
 Please provide a structured analysis with these sections:
 
 **Overview**
-A narrative paragraph summarizing the 90-day trend and trajectory.
+A narrative paragraph summarizing the ${totalDays}-day trend and trajectory.
 
 **Correlations & Patterns**
 Bullet points identifying key correlations (e.g., trigger patterns, medication use relative to pain, symptom co-occurrence, any clustering, etc.)
@@ -1945,19 +1980,20 @@ function simpleMarkdownToHtml(text) {
 }
 
 // AI Report History - Storage
-async function saveAIReport(text) {
+async function saveAIReport(text, meta = {}) {
     const id = Date.now().toString();
     const generatedAt = new Date().toISOString();
+    const record = { generatedAt, text, ...meta };
     if (currentUser) {
         try {
             const reportRef = doc(db, 'users', currentUser.uid, 'aiReports', id);
-            await setDoc(reportRef, { generatedAt, text });
+            await setDoc(reportRef, record);
         } catch (error) {
             console.error('Error saving AI report:', error);
         }
     } else {
         const reports = JSON.parse(localStorage.getItem('headacheTracker_aiReports') || '[]');
-        reports.unshift({ id, generatedAt, text });
+        reports.unshift({ id, ...record });
         localStorage.setItem('headacheTracker_aiReports', JSON.stringify(reports));
     }
 }
@@ -2016,7 +2052,12 @@ async function renderAIReportHistory() {
                 ${reports.map(report => `
                     <div class="ai-report-item" id="report-item-${report.id}">
                         <div class="ai-report-summary" onclick="toggleReport('${report.id}')">
-                            <span class="ai-report-date">${formatReportDate(report.generatedAt)}</span>
+                            <div class="ai-report-info">
+                                <span class="ai-report-generated">Generated ${formatReportDate(report.generatedAt)}</span>
+                                ${report.startDate && report.endDate
+                                    ? `<span class="ai-report-span">${formatDateSpan(report.startDate, report.endDate, report.totalDays, report.entryCount)}</span>`
+                                    : ''}
+                            </div>
                             <div class="ai-report-actions">
                                 <button class="ai-report-delete-btn" onclick="confirmDeleteReport(event, '${report.id}')">Delete</button>
                                 <span class="ai-report-chevron" id="chevron-${report.id}">▼</span>
@@ -2037,6 +2078,14 @@ function formatReportDate(isoString) {
         day: 'numeric', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
     });
+}
+
+function formatDateSpan(startDate, endDate, totalDays, entryCount) {
+    const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const dayLabel = totalDays ? `${totalDays} days` : '';
+    const entryLabel = entryCount ? `${entryCount} entries` : '';
+    const meta = [dayLabel, entryLabel].filter(Boolean).join(' · ');
+    return `${fmt(startDate)} – ${fmt(endDate)}${meta ? ` · ${meta}` : ''}`;
 }
 
 window.toggleReport = function(id) {
