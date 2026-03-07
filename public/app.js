@@ -980,6 +980,9 @@ function renderStats(data) {
     const maxPain = data.entries.length > 0 ? Math.max(...data.entries.map(e => e.peakPain)) : 0;
     const totalMeds = data.entries.reduce((sum, e) => sum + getTotalMeds(e), 0);
     const daysWithPain = data.entries.filter(e => e.painLevel > 0).length;
+    const daysWithTinnitus = data.entries.filter(e => (e.tinnitus || 0) > 0).length;
+    const daysWithOcular = data.entries.filter(e => (e.ocular || 0) > 0).length;
+    const daysWithSleep = data.entries.filter(e => (e.sleepIssues || 0) > 0).length;
 
     // Count distinct days with painkillers (Paracetamol, Ibuprofen, Aspirin, Sumatriptan - not Ice or Other)
     const daysWithPainkillers = data.entries.filter(e =>
@@ -1016,6 +1019,18 @@ function renderStats(data) {
         <div class="stat-item">
             <span class="stat-label">Days with Headache</span>
             <span class="stat-value">${daysWithPain} (${((daysWithPain/totalDays)*100).toFixed(0)}%)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Days with Tinnitus</span>
+            <span class="stat-value">${daysWithTinnitus} (${((daysWithTinnitus/totalDays)*100).toFixed(0)}%)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Days with Ocular</span>
+            <span class="stat-value">${daysWithOcular} (${((daysWithOcular/totalDays)*100).toFixed(0)}%)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Days with Sleep Issues</span>
+            <span class="stat-value">${daysWithSleep} (${((daysWithSleep/totalDays)*100).toFixed(0)}%)</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Total Medication Doses</span>
@@ -1081,6 +1096,9 @@ function getStatsForPeriod(startDaysAgo, endDaysAgo) {
 
     const daysLogged = periodEntries.length;
     const daysWithPain = periodEntries.filter(e => e.painLevel > 0).length;
+    const daysWithTinnitus = periodEntries.filter(e => (e.tinnitus || 0) > 0).length;
+    const daysWithOcular = periodEntries.filter(e => (e.ocular || 0) > 0).length;
+    const daysWithSleep = periodEntries.filter(e => (e.sleepIssues || 0) > 0).length;
     const totalMeds = periodEntries.reduce((sum, e) => sum + getTotalMeds(e), 0);
 
     const daysWithPainkillers = periodEntries.filter(e =>
@@ -1111,6 +1129,12 @@ function getStatsForPeriod(startDaysAgo, endDaysAgo) {
         daysLoggedPct: (daysLogged / calendarDays) * 100,
         daysWithPain,
         daysWithPainPct: (daysWithPain / calendarDays) * 100,
+        daysWithTinnitus,
+        daysWithTinnitusPct: (daysWithTinnitus / calendarDays) * 100,
+        daysWithOcular,
+        daysWithOcularPct: (daysWithOcular / calendarDays) * 100,
+        daysWithSleep,
+        daysWithSleepPct: (daysWithSleep / calendarDays) * 100,
         totalMeds,
         daysWithPainkillers,
         daysWithPainkillersPct: (daysWithPainkillers / calendarDays) * 100,
@@ -1180,6 +1204,30 @@ function renderTrends() {
             p2: `${period2.daysWithPain} (${period2.daysWithPainPct.toFixed(0)}%)`,
             p3: `${period3.daysWithPain} (${period3.daysWithPainPct.toFixed(0)}%)`,
             v1: period1.daysWithPainPct, v2: period2.daysWithPainPct, v3: period3.daysWithPainPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Days with Tinnitus',
+            p1: `${period1.daysWithTinnitus} (${period1.daysWithTinnitusPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithTinnitus} (${period2.daysWithTinnitusPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithTinnitus} (${period3.daysWithTinnitusPct.toFixed(0)}%)`,
+            v1: period1.daysWithTinnitusPct, v2: period2.daysWithTinnitusPct, v3: period3.daysWithTinnitusPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Days with Ocular',
+            p1: `${period1.daysWithOcular} (${period1.daysWithOcularPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithOcular} (${period2.daysWithOcularPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithOcular} (${period3.daysWithOcularPct.toFixed(0)}%)`,
+            v1: period1.daysWithOcularPct, v2: period2.daysWithOcularPct, v3: period3.daysWithOcularPct,
+            lowerIsBetter: true
+        },
+        {
+            label: 'Days with Sleep Issues',
+            p1: `${period1.daysWithSleep} (${period1.daysWithSleepPct.toFixed(0)}%)`,
+            p2: `${period2.daysWithSleep} (${period2.daysWithSleepPct.toFixed(0)}%)`,
+            p3: `${period3.daysWithSleep} (${period3.daysWithSleepPct.toFixed(0)}%)`,
+            v1: period1.daysWithSleepPct, v2: period2.daysWithSleepPct, v3: period3.daysWithSleepPct,
             lowerIsBetter: true
         },
         {
