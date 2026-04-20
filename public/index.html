@@ -147,7 +147,7 @@
                                 <span>Ice</span>
                                 <div class="stepper">
                                     <button type="button" class="stepper-btn minus">−</button>
-                                    <input type="number" name="codeine" min="0" max="20" value="0">
+                                    <input type="number" name="ice" min="0" max="20" value="0">
                                     <button type="button" class="stepper-btn plus">+</button>
                                 </div>
                             </label>
@@ -166,7 +166,7 @@
                         </label>
                         <label>
                             <span>Notes</span>
-                            <textarea name="notes" rows="4" placeholder="Any additional observations..."></textarea>
+                            <textarea name="notes" rows="4" placeholder="Any additional observations..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
                         </label>
                     </fieldset>
 
@@ -175,6 +175,48 @@
                         <button type="button" id="clearBtn" class="clear-btn">Clear</button>
                     </div>
                 </form>
+
+                <div id="garminPanel" class="garmin-panel" style="display:none">
+                    <div class="garmin-panel-header">
+                        <h3>Garmin Health Data</h3>
+                        <div class="garmin-header-buttons">
+                            <button id="syncGarminBtn" class="sync-garmin-btn">Sync Day</button>
+                            <button id="syncGarminAllBtn" class="sync-garmin-btn sync-all">Sync Missing Days</button>
+                        </div>
+                    </div>
+                    <div id="garminBulkProgress" class="garmin-bulk-progress" style="display:none;">
+                        <div class="progress-bar-container">
+                            <div id="garminProgressBar" class="progress-bar"></div>
+                        </div>
+                        <span id="garminProgressText" class="progress-text"></span>
+                    </div>
+                    <div id="garminData" class="garmin-data-grid"></div>
+                </div>
+
+                <!-- Food Checker -->
+                <div class="food-checker">
+                    <div class="food-checker-row">
+                        <span class="food-checker-label">Food Checker</span>
+                        <input type="text" id="foodCheckerInput" placeholder="Type a food or ingredient..." class="food-checker-input">
+                        <span id="foodCheckerScore" class="food-checker-score"></span>
+                    </div>
+                    <div id="foodCheckerAlt" class="food-checker-alt"></div>
+                </div>
+
+                <!-- Food Log -->
+                <div id="foodLogPanel" class="food-log-panel">
+                    <div class="food-log-header">
+                        <h3>Food Log</h3>
+                        <div style="display:flex;gap:8px">
+                            <button id="addMealManualBtn" class="food-manual-btn">+ Add Meal</button>
+                            <label class="food-photo-btn" for="foodPhotoInput">
+                                📷 Photo
+                                <input type="file" id="foodPhotoInput" accept="image/*" capture="environment" style="display:none">
+                            </label>
+                        </div>
+                    </div>
+                    <div id="foodLogEntries" class="food-log-entries"></div>
+                </div>
             </section>
 
             <!-- History Tab -->
@@ -210,6 +252,10 @@
                         <h3>Tracking Over Time</h3>
                         <div id="chartLegend" class="chart-legend"></div>
                         <canvas id="combinedChart"></canvas>
+                        <div class="rolling-avg-control">
+                            <label>Rolling Average: <span id="rollingAvgValue">1</span> day<span id="rollingAvgPlural"></span></label>
+                            <input type="range" id="rollingAvgSlider" min="1" max="10" value="1" step="1">
+                        </div>
                     </div>
                     <div class="chart-container">
                         <h3>Summary Statistics for chosen time period</h3>
@@ -286,6 +332,26 @@
                             <button class="theme-btn" data-theme="graphite">Graphite</button>
                             <button class="theme-btn" data-theme="aqua">Aqua</button>
                         </div>
+                    </div>
+
+                    <div class="garmin-settings-section">
+                        <h3>Garmin Connect</h3>
+                        <p>Link your Garmin account to pull in health stats (steps, sleep, heart rate, stress, HRV, Body Battery).</p>
+                        <div class="garmin-credentials">
+                            <input type="text" id="garminUsername" placeholder="Garmin email" autocomplete="username">
+                            <input type="password" id="garminPassword" placeholder="Garmin password" autocomplete="current-password">
+                            <button id="saveGarminBtn" class="save-api-key-btn">Save Credentials</button>
+                        </div>
+                        <div id="garminTokenStatus" class="garmin-token-status"></div>
+                        <div id="garminConnectInstructions" class="garmin-connect-instructions" style="display:none;">
+                            <p><strong>To connect (or reconnect) Garmin:</strong> run this command on your PC:</p>
+                            <div class="garmin-command-box">
+                                <code id="garminCommand"></code>
+                                <button id="copyGarminCmd" class="copy-cmd-btn" title="Copy to clipboard">Copy</button>
+                            </div>
+                            <p class="garmin-help-text">This logs in via your PC (Garmin blocks cloud logins). Tokens last ~30 days.</p>
+                        </div>
+                        <div id="garminStatus" class="garmin-status"></div>
                     </div>
 
                     <div class="ai-settings-section">

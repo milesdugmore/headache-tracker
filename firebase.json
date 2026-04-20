@@ -17,6 +17,10 @@
     ],
     "headers": [
       {
+        "source": "**/*.html",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
+      {
         "source": "**/*.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
       },
@@ -29,6 +33,26 @@
       {
         "source": "/api/analyze",
         "function": "anthropicProxy"
+      },
+      {
+        "source": "/api/analyse-food",
+        "function": "analyseFood"
+      },
+      {
+        "source": "/api/garmin-sync",
+        "function": "garminSync"
+      },
+      {
+        "source": "/api/garmin-upload-tokens",
+        "function": "garminUploadTokens"
+      },
+      {
+        "source": "/api/garmin-token-status",
+        "function": "garminTokenStatus"
+      },
+      {
+        "source": "/api/garmin-bulk-sync",
+        "function": "garminBulkSync"
       },
       {
         "source": "**",
