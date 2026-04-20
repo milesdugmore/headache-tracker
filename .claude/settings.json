@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"d='''''''';process.stdin.on\\(''''data'''',c=>d+=c\\);process.stdin.on\\(''''end'''',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(''''All keys:'''', Object.keys\\(j\\)\\);Object.entries\\(j\\).forEach\\(\\([k,v]\\)=>{if\\(v?.error\\) console.log\\(k+'''': ERROR -'''',v.error.substring\\(0,200\\)\\); else if\\(typeof v===''''object''''\\) console.log\\(k+'''': keys='''',Object.keys\\(v||{}\\).slice\\(0,10\\)\\); else console.log\\(k+'''':'''',JSON.stringify\\(v\\)?.substring\\(0,100\\)\\)}\\)}\\)\")",
+      "Bash(curl -s -X POST \"https://headache-tracker-md-2026.web.app/api/garmin-sync\" -H \"Content-Type: application/json\" -d '{\"\"\"\"username\"\"\"\":\"\"\"\"miles@dugmore.org.uk\"\"\"\",\"\"\"\"date\"\"\"\":\"\"\"\"2026-03-23\"\"\"\"}')",
+      "Bash(node -e \"d='''''''';process.stdin.on\\(''''data'''',c=>d+=c\\);process.stdin.on\\(''''end'''',\\(\\)=>console.log\\(JSON.stringify\\(JSON.parse\\(d\\),null,2\\)\\)\\)\")",
+      "Bash(node -e \"require\\(''./index.js''\\)\")"
+    ]
+  }
+}

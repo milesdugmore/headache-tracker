@@ -9,7 +9,13 @@
       "Bash(npm install:*)",
       "Bash(npx firebase deploy --only hosting)",
       "Bash(git commit:*)",
-      "Bash(git push origin master)"
+      "Bash(git push origin master)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npx firebase:*)",
+      "Bash(node -e \":*)",
+      "Bash(node garmin-login.js \"miles@dugmore.org.uk\" \"bEq6MiitH3\")"
     ]
   }
 }
